@@ -6,7 +6,7 @@ using System.IO;
 
 namespace YellowCounter.FileSystemState
 {
-    public struct FileChange
+    public class FileChange
     {
         internal FileChange(string directory, string path, WatcherChangeTypes type)
         {
