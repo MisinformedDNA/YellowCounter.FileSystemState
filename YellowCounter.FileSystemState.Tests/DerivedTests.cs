@@ -13,7 +13,7 @@ public partial class FileSystemStateDerivedTests
         string subDirectory = new DirectoryInfo(currentDir).CreateSubdirectory("sub").FullName;
 
         DerivedWatcher watcher2 = new DerivedWatcher(currentDir);
-        watcher2.Start();
+        watcher2.LoadState();
 
         try
         {
@@ -33,7 +33,7 @@ public partial class FileSystemStateDerivedTests
         string subDirectory = new DirectoryInfo(currentDir).CreateSubdirectory("sub").FullName;
 
         DerivedWatcher watcher2 = new DerivedWatcher(currentDir, options: new EnumerationOptions { RecurseSubdirectories = true });
-        watcher2.Start();
+        watcher2.LoadState();
 
         try
         {

@@ -26,7 +26,7 @@ namespace YellowCounter.FileSystemState
         public string Filter { get; set; }
         public EnumerationOptions EnumerationOptions { get; set; }
 
-        public void Start()
+        public void LoadState()
         {
             GetChanges();
         }
