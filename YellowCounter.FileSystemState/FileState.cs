@@ -8,7 +8,9 @@ namespace YellowCounter.FileSystemState
     [Serializable]
     internal class FileState
     {
+        [NonSerialized]
         public long Version;  // removal notification are implemented something similar to "mark and sweep". This value is incremented in the mark phase
+
         public string Directory;
         public string Path;
         public DateTimeOffset LastWriteTimeUtc;

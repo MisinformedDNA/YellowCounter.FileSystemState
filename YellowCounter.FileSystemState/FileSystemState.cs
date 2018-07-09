@@ -9,7 +9,7 @@ namespace YellowCounter.FileSystemState
 {
     public class FileSystemState
     {
-        private long _version;
+        private long _version = default;
         private PathToFileStateHashtable _state = new PathToFileStateHashtable();
 
         public FileSystemState(string path, string filter = "*", EnumerationOptions options = null)
