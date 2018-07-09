@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.IO.Enumeration;
 using System.Runtime.InteropServices;
+using System.Runtime.Serialization.Formatters.Binary;
 
 namespace YellowCounter.FileSystemState
 {
@@ -29,6 +30,18 @@ namespace YellowCounter.FileSystemState
         public void LoadState()
         {
             GetChanges();
+        }
+
+        public void LoadState(Stream stream)
+        {
+            BinaryFormatter serializer = new BinaryFormatter();
+            _state = (PathToFileStateHashtable)serializer.Deserialize(stream);
+        }
+
+        public void SaveState(Stream stream)
+        {
+            BinaryFormatter serializer = new BinaryFormatter();
+            serializer.Serialize(stream, _state);
         }
 
         // This function walks all watched files, collects changes, and updates state

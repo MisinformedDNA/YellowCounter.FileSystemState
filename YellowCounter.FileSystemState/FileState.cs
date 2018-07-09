@@ -5,6 +5,7 @@ using System;
 
 namespace YellowCounter.FileSystemState
 {
+    [Serializable]
     internal class FileState
     {
         public long Version;  // removal notification are implemented something similar to "mark and sweep". This value is incremented in the mark phase
