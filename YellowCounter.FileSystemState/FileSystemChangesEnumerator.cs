@@ -25,7 +25,7 @@ namespace YellowCounter.FileSystemState
 
         protected override string TransformEntry(ref FileSystemEntry entry)
         {
-            _watcher.UpdateState(_currentDirectory, ref _changes, ref entry);
+            _watcher.DetermineChange(_currentDirectory, ref _changes, ref entry);
 
             return null;
         }

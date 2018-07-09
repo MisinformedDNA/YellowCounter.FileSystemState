@@ -80,7 +80,7 @@ namespace YellowCounter.FileSystemState
             return removals;
         }
 
-        protected internal virtual void UpdateState(string directory, ref FileChangeList changes, ref FileSystemEntry file)
+        protected internal virtual void DetermineChange(string directory, ref FileChangeList changes, ref FileSystemEntry file)
         {
             string path = file.FileName.ToString();
 
