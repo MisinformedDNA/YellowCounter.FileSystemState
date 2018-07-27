@@ -1,3 +1,5 @@
+[![NuGet](https://img.shields.io/nuget/v/YellowCounter.FileSystemState.svg)](https://www.nuget.org/packages/YellowCounter.FileSystemState/)
+
 # YellowCounter.FileSystemState
 Like FileSystemWatcher except you control when the state is checked. This allows it to work well for scheduled tasks instead of relying on continuous jobs.
 
