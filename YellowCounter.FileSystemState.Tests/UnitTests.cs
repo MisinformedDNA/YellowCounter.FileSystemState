@@ -126,6 +126,42 @@ public partial class FileSystemStateUnitTests
         }
     }
 
+
+
+    [Fact]
+    public static void FileSystemWatcher_Renamed_File()
+    {
+        string currentDir = Utility.GetRandomDirectory();
+        string fileName = Path.GetRandomFileName();
+        string newName = Path.GetRandomFileName();
+        string fullName = Path.Combine(currentDir, fileName);
+
+
+        FileSystemState watcher = new FileSystemState(currentDir);
+
+        using(FileStream file = File.Create(fullName)) { }
+        watcher.LoadState();
+
+        File.Move(fullName, Path.Combine(currentDir, newName));
+
+        var changes = watcher.GetChanges();
+
+        try
+        {
+            Assert.Single(changes);
+            FileChange change = changes[0];
+            Assert.Equal(WatcherChangeTypes.Renamed, change.ChangeType);
+            Assert.Equal(fileName, change.OldName);
+            Assert.Equal(currentDir, change.OldDirectory);
+            Assert.Equal(newName, change.Name);
+            Assert.Equal(currentDir, change.Directory);
+        }
+        finally
+        {
+            Directory.Delete(currentDir, true);
+        }
+    }
+
     [Fact]
     public static void FileSystemWatcher_Filter()
     {
