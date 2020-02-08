@@ -50,43 +50,68 @@ namespace YellowCounter.FileSystemState
         {
             _version++;
 
-            FileChangeList rawChanges = GetCreatesAndChanges();
+            var rawChanges = GetCreatesAndChanges();
 
-            var removals = GetRemovalsX(); //.ToLookup(x => (x.LastWriteTimeUtc, x.Length));
+            var removals = GetRemovalsX().ToList(); //.ToLookup(x => (x.LastWriteTimeUtc, x.Length));
 
-            // Look at all created files.
-            // Can we find removed files which match on lastwrite / length?
-            // These are probably renames.
-            // TODO - same directory different name OR same name different directory
-            var renames = rawChanges
+            var createsByTime = rawChanges
                 .Where(x => x.ChangeType == WatcherChangeTypes.Created)
                 .Select(x => new {
                     FileChange = x,
                     State = _state.Get(x.Directory, x.Name)
                 })
-                .GroupJoin(removals,
-                    x => new { x.State.LastWriteTimeUtc, x.State.Length },
-                    x => new { x.LastWriteTimeUtc, x.Length },
-                    (x, y) => new { NewFile = x, OldFile = y.First() })
+                .GroupBy(x => new 
+                    {
+                        // Group by last write time, length and directory
+                        x.State.LastWriteTimeUtc,
+                        x.State.Length,
+                        x.State.Path 
+                    },
+                    (x, y) => new 
+                    { 
+                        // Return key fields, and list of all created files for the
+                        // given (time, length, path) key
+                        x.LastWriteTimeUtc,
+                        x.Length,
+                        x.Path, 
+                        Creates = y.ToList() 
+                    });
+
+            var removesByTime = removals
+                .GroupBy(x => new { x.LastWriteTimeUtc, x.Length, x.Path },
+                (x, y) => new { x.LastWriteTimeUtc, x.Length, x.Path, Removes = y.ToList() });
+
+            // Join creates and removes by (time, length, directory), then filter to
+            // only those matches which are unambiguous.
+            var renames = createsByTime.Join(removesByTime,
+                x => new { x.LastWriteTimeUtc, x.Length, x.Path },
+                x => new { x.LastWriteTimeUtc, x.Length, x.Path },
+                (x, y) => new { x.Creates, y.Removes }
+                )
+                .Where(x => x.Creates.Count == 1 && x.Removes.Count == 1)
+                .Select(x => new
+                {
+                    NewFile = x.Creates[0],
+                    OldFile = x.Removes[0]
+                })
                 .ToList();
 
             var adds = rawChanges
                 .Where(x => x.ChangeType == WatcherChangeTypes.Created)
                 .Except(renames.Select(x => x.NewFile.FileChange));
 
-            var removes = removals.Except(renames.Select(x => x.OldFile))
+            var changes = rawChanges
+                .Where(x => x.ChangeType == WatcherChangeTypes.Changed);
+
+            var removes = removals
+                .Except(renames.Select(x => x.OldFile))
                 .Select(x => new FileChange(x.Directory, x.Path, WatcherChangeTypes.Deleted));
 
-
-
-            GetRenames(rawChanges);
-
-            //List<(string directory, string path)> removals = GetRemovals();
-            //foreach(var (directory, path) in removals)
-            //{
-            //    rawChanges.AddRemoved(directory, path);
-            //    _state.Remove(directory, path);
-            //}
+            var renames2 = renames.Select(x => new FileChange(x.NewFile.FileChange.Directory,
+                x.NewFile.FileChange.Name,
+                WatcherChangeTypes.Renamed,
+                x.OldFile.Directory,
+                x.OldFile.Path));
 
             // Clear out the files that have been removed or renamed from our state.
             foreach(var r in removals)
@@ -94,7 +119,14 @@ namespace YellowCounter.FileSystemState
                 _state.Remove(r.Directory, r.Path);
             }
 
-            return rawChanges;
+            var result = new FileChangeList();
+
+            result.AddRange(adds);
+            result.AddRange(changes);
+            result.AddRange(removes);
+            result.AddRange(renames2);
+
+            return result;
         }
 
         private FileChangeList GetCreatesAndChanges()
