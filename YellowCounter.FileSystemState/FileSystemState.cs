@@ -52,7 +52,7 @@ namespace YellowCounter.FileSystemState
 
             var rawChanges = GetCreatesAndChanges();
 
-            var removals = GetRemovalsX().ToList(); //.ToLookup(x => (x.LastWriteTimeUtc, x.Length));
+            var removals = GetRemovals().ToList();
 
             var createsByTime = rawChanges
                 .Where(x => x.ChangeType == WatcherChangeTypes.Created)
@@ -120,6 +120,7 @@ namespace YellowCounter.FileSystemState
                 x.OldFile.Path))
                 .ToList();
 
+
             // Clear out the files that have been removed or renamed from our state.
             foreach(var r in removals)
             {
@@ -147,30 +148,7 @@ namespace YellowCounter.FileSystemState
             return changes;
         }
 
-        private void GetRenames(FileChangeList changes)
-        {
-
-            foreach(var value in _state.Values)
-            {
-                // Find files in our state that have not been marked (have gone missing)
-                if(value.Version != _version)
-                {
-                    // Is there another file in there with the same lastwrite and length?
-                    // That's what we've renamed it to.
-                    var renamedTo = _state.Keys
-                        //.Where(x => x.directory == value.Directory)
-                        .Select(x => _state[x])
-                        .Where(x => x.LastWriteTimeUtc == value.LastWriteTimeUtc && x.Length == value.Length
-                                    && (x.Path != value.Path || x.Directory != value.Directory))
-                        .FirstOrDefault();
-
-                   // changes.Remove(
-                    _state.Remove(value.Directory, value.Path);
-                }
-            }
-        }
-
-        private IEnumerable<FileState> GetRemovalsX()
+        private IEnumerable<FileState> GetRemovals()
         {
             foreach(var value in _state.Values)
             {
@@ -179,21 +157,9 @@ namespace YellowCounter.FileSystemState
                     yield return value;
                 }
             }
+
         }
 
-        private List<(string directory, string path)> GetRemovals()
-        {
-            List<(string, string)> removals = new List<(string, string)>();
-            foreach (var value in _state.Values)
-            {
-                if (value.Version != _version)
-                {
-                    removals.Add((value.Directory, value.Path));
-                }
-            }
-
-            return removals;
-        }
 
         protected internal virtual void DetermineChange(string directory, ref FileChangeList changes, ref FileSystemEntry file)
         {
