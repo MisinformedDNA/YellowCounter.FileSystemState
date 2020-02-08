@@ -139,17 +139,29 @@ namespace YellowCounter.FileSystemState
             return (creates, changes, removals);
         }
 
-        private static IEnumerable<(FileState NewFile, FileState OldFile)> matchRenames(
-            IEnumerable<FileState> creates, 
+        private IEnumerable<(FileState NewFile, FileState OldFile)> matchRenames(
+            IEnumerable<FileState> creates,
             IEnumerable<FileState> removals)
+        {
+            // Want to match creates and removals to convert to renames either by:
+            // Same directory, different name
+            // or different directory, same name.
+            return matchRenames(creates, removals, false)
+                .Concat(matchRenames(creates, removals, true));
+        }
+
+        private IEnumerable<(FileState NewFile, FileState OldFile)> matchRenames(
+            IEnumerable<FileState> creates,
+            IEnumerable<FileState> removals,
+            bool byName)
         {
             var createsByTime = creates
                 .GroupBy(x => new
                 {
-                    // Group by last write time, length and directory
+                    // Group by last write time, length and directory or filename
                     x.LastWriteTimeUtc,
                     x.Length,
-                    x.Directory
+                    Name = byName ? x.Directory : x.Path
                 },
                     (x, y) => new
                     {
@@ -157,21 +169,21 @@ namespace YellowCounter.FileSystemState
                         // given (time, length, path) key
                         x.LastWriteTimeUtc,
                         x.Length,
-                        x.Directory,
+                        x.Name,
                         Creates = y.ToList()
                     })
                 .ToList();
 
             var removesByTime = removals
-                .GroupBy(x => new { x.LastWriteTimeUtc, x.Length, x.Directory },
-                (x, y) => new { x.LastWriteTimeUtc, x.Length, x.Directory, Removes = y.ToList() })
+                .GroupBy(x => new { x.LastWriteTimeUtc, x.Length, Name = byName ? x.Directory : x.Path },
+                (x, y) => new { x.LastWriteTimeUtc, x.Length, x.Name, Removes = y.ToList() })
                 .ToList();
 
             // Join creates and removes by (time, length, directory), then filter to
             // only those matches which are unambiguous.
             return createsByTime.Join(removesByTime,
-                x => new { x.LastWriteTimeUtc, x.Length, x.Directory },
-                x => new { x.LastWriteTimeUtc, x.Length, x.Directory },
+                x => new { x.LastWriteTimeUtc, x.Length, x.Name },
+                x => new { x.LastWriteTimeUtc, x.Length, x.Name },
                 (x, y) => new { x.Creates, y.Removes }
                 )
                 .Where(x => x.Creates.Count == 1 && x.Removes.Count == 1)

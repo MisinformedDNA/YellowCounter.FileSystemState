@@ -163,6 +163,43 @@ public partial class FileSystemStateUnitTests
     }
 
     [Fact]
+    public static void FileSystemWatcher_Renamed_Directory()
+    {
+        string currentDir = Utility.GetRandomDirectory();
+        string fileName = Path.GetRandomFileName();
+        string subDir = Path.Combine(currentDir, "subdir");
+        string fullName = Path.Combine(currentDir, fileName);
+        string newName = Path.Combine(subDir, fileName);
+
+        FileSystemState watcher = new FileSystemState(currentDir, options: new EnumerationOptions() { RecurseSubdirectories = true });
+
+        Directory.CreateDirectory(subDir);
+
+        using(FileStream file = File.Create(fullName)) { }
+        watcher.LoadState();
+
+        File.Move(fullName, Path.Combine(currentDir, newName));
+
+        var changes = watcher.GetChanges();
+
+        try
+        {
+            Assert.Single(changes);
+            FileChange change = changes[0];
+            Assert.Equal(WatcherChangeTypes.Renamed, change.ChangeType);
+            Assert.Equal(fileName, change.OldName);
+            Assert.Equal(currentDir, change.OldDirectory);
+            Assert.Equal(fileName, change.Name);
+            Assert.Equal(subDir, change.Directory);
+        }
+        finally
+        {
+            Directory.Delete(subDir, true);
+            Directory.Delete(currentDir, true);
+        }
+    }
+
+    [Fact]
     public static void FileSystemWatcher_Filter()
     {
         string currentDir = Utility.GetRandomDirectory();
