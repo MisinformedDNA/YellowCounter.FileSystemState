@@ -48,16 +48,102 @@ namespace YellowCounter.FileSystemState
         // This function walks all watched files, collects changes, and updates state
         public FileChangeList GetChanges()
         {
+            // Get the raw file changes, either create, file change or removal.
+            var (creates, changes, removals) = getFileChanges();
+
+            // Match up the creates and removals to get the renames
+            var renames = matchRenames(creates, removals);
+
+            // Convert to the output format.
+            var result = convertToFileChanges(creates, changes, removals, renames);
+
+
+            return result;
+        }
+
+
+        private void gatherChanges()
+        {
             var enumerator = new FileSystemChangeEnumerator(this);
             while(enumerator.MoveNext()) { }
+        }
 
-            var rawChanges = _state.Read().Where(x => x.LastSeenVersion == _version).ToList();
+        private void acceptChanges()
+        {
+            // Clear out the files that have been removed or renamed from our state.
+            _state.Sweep(_version);
+            _version++;
+        }
 
-            var removals = _state.Read().Where(x => x.LastSeenVersion != _version).ToList();
+        private FileChangeList convertToFileChanges(
+            IEnumerable<FileState> creates, 
+            IEnumerable<FileState> changes, 
+            IEnumerable<FileState> removals, 
+            IEnumerable<(FileState NewFile, FileState OldFile)> renames)
+        {
+            var createResults = creates
+                .Except(renames.Select(x => x.NewFile))
+                .Select(x => new FileChange(x.Directory, x.Path, WatcherChangeTypes.Created))
+                ;
 
+            var changeResults = changes
+                .Select(x => new FileChange(x.Directory, x.Path, WatcherChangeTypes.Changed))
+                ;
 
-            var createsByTime = rawChanges
-                .Where(x => x.CreateVersion == _version)
+            var removeResults = removals
+                .Except(renames.Select(x => x.OldFile))
+                .Select(x => new FileChange(x.Directory, x.Path, WatcherChangeTypes.Deleted))
+                ;
+
+            var renameResults = renames.Select(x => new FileChange(
+                x.NewFile.Directory,
+                x.NewFile.Path,
+                WatcherChangeTypes.Renamed,
+                x.OldFile.Directory,
+                x.OldFile.Path))
+                ;
+            
+            var result = new FileChangeList();
+
+            result.AddRange(createResults);
+            result.AddRange(changeResults);
+            result.AddRange(removeResults);
+            result.AddRange(renameResults);
+
+            return result;
+        }
+
+        private (IEnumerable<FileState> creates, IEnumerable<FileState> changes, IEnumerable<FileState> removals) getFileChanges()
+        {
+            var creates = new List<FileState>();
+            var changes = new List<FileState>();
+            var removals = new List<FileState>();
+
+            gatherChanges();
+
+            foreach(var x in _state.Read())
+            {
+                if(x.LastSeenVersion == _version)
+                {
+                    if(x.CreateVersion == _version)
+                        creates.Add(x);
+                    else
+                        changes.Add(x);
+                }
+                else
+                    removals.Add(x);
+            }
+
+            acceptChanges();
+
+            return (creates, changes, removals);
+        }
+
+        private static IEnumerable<(FileState NewFile, FileState OldFile)> matchRenames(
+            IEnumerable<FileState> creates, 
+            IEnumerable<FileState> removals)
+        {
+            var createsByTime = creates
                 .GroupBy(x => new
                 {
                     // Group by last write time, length and directory
@@ -83,57 +169,18 @@ namespace YellowCounter.FileSystemState
 
             // Join creates and removes by (time, length, directory), then filter to
             // only those matches which are unambiguous.
-            var renames = createsByTime.Join(removesByTime,
+            return createsByTime.Join(removesByTime,
                 x => new { x.LastWriteTimeUtc, x.Length, x.Directory },
                 x => new { x.LastWriteTimeUtc, x.Length, x.Directory },
                 (x, y) => new { x.Creates, y.Removes }
                 )
                 .Where(x => x.Creates.Count == 1 && x.Removes.Count == 1)
-                .Select(x => new
-                {
-                    NewFile = x.Creates[0],
-                    OldFile = x.Removes[0]
-                })
+                .Select(x => (
+                    NewFile: x.Creates[0],
+                    OldFile: x.Removes[0]
+                ))
                 .ToList();
-
-            var adds = rawChanges
-                .Where(x => x.CreateVersion == _version)
-                .Except(renames.Select(x => x.NewFile))
-                .Select(x => new FileChange(x.Directory, x.Path, WatcherChangeTypes.Created))
-                .ToList();
-
-            var changes = rawChanges
-                .Where(x => x.ChangeVersion == _version && x.CreateVersion != _version)
-                .Select(x => new FileChange(x.Directory, x.Path, WatcherChangeTypes.Changed))
-                .ToList();
-
-            var removes = removals
-                .Except(renames.Select(x => x.OldFile))
-                .Select(x => new FileChange(x.Directory, x.Path, WatcherChangeTypes.Deleted))
-                .ToList();
-
-            var renames2 = renames.Select(x => new FileChange(
-                x.NewFile.Directory,
-                x.NewFile.Path,
-                WatcherChangeTypes.Renamed,
-                x.OldFile.Directory,
-                x.OldFile.Path))
-                .ToList();
-            
-            // Clear out the files that have been removed or renamed from our state.
-            _state.Sweep(_version);
-            _version++;
-
-            var result = new FileChangeList();
-
-            result.AddRange(adds);
-            result.AddRange(changes);
-            result.AddRange(removes);
-            result.AddRange(renames2);
-
-            return result;
         }
-
 
         protected internal virtual void DetermineChange(string directory, ref FileChangeList changes, ref FileSystemEntry file)
         {
