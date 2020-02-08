@@ -4,6 +4,7 @@ using System.IO;
 using System.IO.Enumeration;
 using System.Runtime.InteropServices;
 using System.Runtime.Serialization.Formatters.Binary;
+using System.Linq;
 
 namespace YellowCounter.FileSystemState
 {
@@ -49,21 +50,96 @@ namespace YellowCounter.FileSystemState
         {
             _version++;
 
+            FileChangeList rawChanges = GetCreatesAndChanges();
+
+            var removals = GetRemovalsX(); //.ToLookup(x => (x.LastWriteTimeUtc, x.Length));
+
+            // Look at all created files.
+            // Can we find removed files which match on lastwrite / length?
+            // These are probably renames.
+            // TODO - same directory different name OR same name different directory
+            var renames = rawChanges
+                .Where(x => x.ChangeType == WatcherChangeTypes.Created)
+                .Select(x => new {
+                    FileChange = x,
+                    State = _state.Get(x.Directory, x.Name)
+                })
+                .GroupJoin(removals,
+                    x => new { x.State.LastWriteTimeUtc, x.State.Length },
+                    x => new { x.LastWriteTimeUtc, x.Length },
+                    (x, y) => new { NewFile = x, OldFile = y.First() })
+                .ToList();
+
+            var adds = rawChanges
+                .Where(x => x.ChangeType == WatcherChangeTypes.Created)
+                .Except(renames.Select(x => x.NewFile.FileChange));
+
+            var removes = removals.Except(renames.Select(x => x.OldFile))
+                .Select(x => new FileChange(x.Directory, x.Path, WatcherChangeTypes.Deleted));
+
+
+
+            GetRenames(rawChanges);
+
+            //List<(string directory, string path)> removals = GetRemovals();
+            //foreach(var (directory, path) in removals)
+            //{
+            //    rawChanges.AddRemoved(directory, path);
+            //    _state.Remove(directory, path);
+            //}
+
+            // Clear out the files that have been removed or renamed from our state.
+            foreach(var r in removals)
+            {
+                _state.Remove(r.Directory, r.Path);
+            }
+
+            return rawChanges;
+        }
+
+        private FileChangeList GetCreatesAndChanges()
+        {
             var enumerator = new FileSystemChangeEnumerator(this);
-            while (enumerator.MoveNext())
+            while(enumerator.MoveNext())
             {
                 // Ignore `.Current`
             }
             var changes = enumerator.Changes;
-
-            List<(string directory, string path)> removals = GetRemovals();
-            foreach (var (directory, path) in removals)
-            {
-                changes.AddRemoved(directory, path);
-                _state.Remove(directory, path);
-            }
-
             return changes;
+        }
+
+        private void GetRenames(FileChangeList changes)
+        {
+
+            foreach(var value in _state.Values)
+            {
+                // Find files in our state that have not been marked (have gone missing)
+                if(value.Version != _version)
+                {
+                    // Is there another file in there with the same lastwrite and length?
+                    // That's what we've renamed it to.
+                    var renamedTo = _state.Keys
+                        //.Where(x => x.directory == value.Directory)
+                        .Select(x => _state[x])
+                        .Where(x => x.LastWriteTimeUtc == value.LastWriteTimeUtc && x.Length == value.Length
+                                    && (x.Path != value.Path || x.Directory != value.Directory))
+                        .FirstOrDefault();
+
+                   // changes.Remove(
+                    _state.Remove(value.Directory, value.Path);
+                }
+            }
+        }
+
+        private IEnumerable<FileState> GetRemovalsX()
+        {
+            foreach(var value in _state.Values)
+            {
+                if(value.Version != _version)
+                {
+                    yield return value;
+                }
+            }
         }
 
         private List<(string directory, string path)> GetRemovals()
