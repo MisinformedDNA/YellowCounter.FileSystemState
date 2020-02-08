@@ -48,25 +48,22 @@ namespace YellowCounter.FileSystemState
         // This function walks all watched files, collects changes, and updates state
         public FileChangeList GetChanges()
         {
-            _version++;
+            var enumerator = new FileSystemChangeEnumerator(this);
+            while(enumerator.MoveNext()) { }
 
-            var rawChanges = GetCreatesAndChanges();
+            var rawChanges = _state.Read().Where(x => x.LastSeenVersion == _version).ToList();
 
-            var removals = GetRemovals().ToList();
+            var removals = _state.Read().Where(x => x.LastSeenVersion != _version).ToList();
+
 
             var createsByTime = rawChanges
-                .Where(x => x.ChangeType == WatcherChangeTypes.Created)
-                .Select(x => new
-                {
-                    FileChange = x,
-                    State = _state.Get(x.Directory, x.Name)
-                })
+                .Where(x => x.CreateVersion == _version)
                 .GroupBy(x => new
                 {
                     // Group by last write time, length and directory
-                    x.State.LastWriteTimeUtc,
-                    x.State.Length,
-                    x.State.Directory
+                    x.LastWriteTimeUtc,
+                    x.Length,
+                    x.Directory
                 },
                     (x, y) => new
                     {
@@ -100,12 +97,14 @@ namespace YellowCounter.FileSystemState
                 .ToList();
 
             var adds = rawChanges
-                .Where(x => x.ChangeType == WatcherChangeTypes.Created)
-                .Except(renames.Select(x => x.NewFile.FileChange))
+                .Where(x => x.CreateVersion == _version)
+                .Except(renames.Select(x => x.NewFile))
+                .Select(x => new FileChange(x.Directory, x.Path, WatcherChangeTypes.Created))
                 .ToList();
 
             var changes = rawChanges
-                .Where(x => x.ChangeType == WatcherChangeTypes.Changed)
+                .Where(x => x.ChangeVersion == _version && x.CreateVersion != _version)
+                .Select(x => new FileChange(x.Directory, x.Path, WatcherChangeTypes.Changed))
                 .ToList();
 
             var removes = removals
@@ -113,19 +112,17 @@ namespace YellowCounter.FileSystemState
                 .Select(x => new FileChange(x.Directory, x.Path, WatcherChangeTypes.Deleted))
                 .ToList();
 
-            var renames2 = renames.Select(x => new FileChange(x.NewFile.FileChange.Directory,
-                x.NewFile.FileChange.Name,
+            var renames2 = renames.Select(x => new FileChange(
+                x.NewFile.Directory,
+                x.NewFile.Path,
                 WatcherChangeTypes.Renamed,
                 x.OldFile.Directory,
                 x.OldFile.Path))
                 .ToList();
-
-
+            
             // Clear out the files that have been removed or renamed from our state.
-            foreach(var r in removals)
-            {
-                _state.Remove(r.Directory, r.Path);
-            }
+            _state.Sweep(_version);
+            _version++;
 
             var result = new FileChangeList();
 
@@ -137,57 +134,19 @@ namespace YellowCounter.FileSystemState
             return result;
         }
 
-        private FileChangeList GetCreatesAndChanges()
-        {
-            var enumerator = new FileSystemChangeEnumerator(this);
-            while(enumerator.MoveNext())
-            {
-                // Ignore `.Current`
-            }
-            var changes = enumerator.Changes;
-            return changes;
-        }
-
-        private IEnumerable<FileState> GetRemovals()
-        {
-            foreach(var value in _state.Values)
-            {
-                if(value.Version != _version)
-                {
-                    yield return value;
-                }
-            }
-
-        }
-
 
         protected internal virtual void DetermineChange(string directory, ref FileChangeList changes, ref FileSystemEntry file)
         {
             string path = file.FileName.ToString();
 
-            FileState fileState = _state.Get(directory, path);
-            if (fileState == null) // file added
-            {
-                fileState = new FileState();
-                fileState.Directory = directory;
-                fileState.Path = path;
-                fileState.LastWriteTimeUtc = file.LastWriteTimeUtc;
-                fileState.Length = file.Length;
-                fileState.Version = _version;
-                _state.Add(directory, path, fileState);
-                changes.AddAdded(directory, path);
-                return;
-            }
+            FileState fs = new FileState();
+            fs.Directory = directory;
+            fs.Path = path;
+            fs.LastWriteTimeUtc = file.LastWriteTimeUtc;
+            fs.Length = file.Length;
 
-            fileState.Version = _version;
+            _state.Mark(fs, _version);
 
-            var previousState = fileState;
-            if (file.LastWriteTimeUtc != fileState.LastWriteTimeUtc || file.Length != fileState.Length)
-            {
-                changes.AddChanged(directory, fileState.Path);
-                fileState.LastWriteTimeUtc = file.LastWriteTimeUtc;
-                fileState.Length = file.Length;
-            }
         }
 
         protected internal virtual bool ShouldIncludeEntry(ref FileSystemEntry entry)

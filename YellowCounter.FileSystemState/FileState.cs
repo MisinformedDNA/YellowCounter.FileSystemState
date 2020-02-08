@@ -9,11 +9,18 @@ namespace YellowCounter.FileSystemState
     internal class FileState
     {
         [NonSerialized]
-        public long Version;  // removal notification are implemented something similar to "mark and sweep". This value is incremented in the mark phase
+        public long LastSeenVersion;  // removal notification are implemented something similar to "mark and sweep". This value is incremented in the mark phase
+
+        [NonSerialized]
+        public long CreateVersion;
+        [NonSerialized]
+        public long ChangeVersion;
 
         public string Directory;
         public string Path;
         public DateTimeOffset LastWriteTimeUtc;
         public long Length;
+
+        internal FileState Clone() => (FileState)this.MemberwiseClone();
     }
 }
