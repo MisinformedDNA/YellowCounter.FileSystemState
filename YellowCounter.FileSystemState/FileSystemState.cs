@@ -8,7 +8,7 @@ using System.Linq;
 
 namespace YellowCounter.FileSystemState
 {
-    public class FileSystemState
+    public class FileSystemState : IAcceptFileSystemEntry 
     {
         private long _version = default;
         private PathToFileStateHashtable _state = new PathToFileStateHashtable();
@@ -64,8 +64,9 @@ namespace YellowCounter.FileSystemState
 
         private void gatherChanges()
         {
-            var enumerator = new FileSystemChangeEnumerator(this);
-            while(enumerator.MoveNext()) { }
+            var enumerator = new FileSystemChangeEnumerator(this.Filter, this.Path, this.EnumerationOptions);
+
+            enumerator.Scan();
         }
 
         private void acceptChanges()
@@ -194,15 +195,15 @@ namespace YellowCounter.FileSystemState
                 .ToList();
         }
 
-        protected internal virtual void DetermineChange(string directory, ref FileChangeList changes, ref FileSystemEntry file)
+        public void Accept(ref FileSystemEntry fileSystemEntry)
         {
-            string path = file.FileName.ToString();
+            string path = fileSystemEntry.FileName.ToString();
 
             FileState fs = new FileState();
-            fs.Directory = directory;
+            fs.Directory = fileSystemEntry.Directory.ToString();
             fs.Path = path;
-            fs.LastWriteTimeUtc = file.LastWriteTimeUtc;
-            fs.Length = file.Length;
+            fs.LastWriteTimeUtc = fileSystemEntry.LastWriteTimeUtc;
+            fs.Length = fileSystemEntry.Length;
 
             _state.Mark(fs, _version);
 
@@ -220,5 +221,6 @@ namespace YellowCounter.FileSystemState
         }
 
         protected internal virtual bool ShouldRecurseIntoEntry(ref FileSystemEntry entry) => true;
+
     }
 }
