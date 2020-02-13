@@ -10,7 +10,7 @@ namespace YellowCounter.FileSystemState
 {
     public class FileSystemState : IAcceptFileSystemEntry 
     {
-        private long _version = default;
+        private long _version = 0L;
         private PathToFileStateHashtable _state = new PathToFileStateHashtable();
 
         public FileSystemState(string path, string filter = "*", EnumerationOptions options = null)
@@ -57,16 +57,35 @@ namespace YellowCounter.FileSystemState
             // Convert to the output format.
             var result = convertToFileChanges(creates, changes, removals, renames);
 
-
             return result;
         }
 
 
         private void gatherChanges()
         {
-            var enumerator = new FileSystemChangeEnumerator(this.Filter, this.Path, this.EnumerationOptions);
+            var enumerator = new FileSystemChangeEnumerator(
+                this.Filter,
+                this.Path, 
+                this.EnumerationOptions,
+                this);
 
             enumerator.Scan();
+        }
+
+        public void Accept(ref FileSystemEntry fileSystemEntry)
+        {
+            _state.Mark(ref fileSystemEntry, _version);
+
+            //string path = fileSystemEntry.FileName.ToString();
+
+            //FileState fs = new FileState();
+            //fs.Directory = fileSystemEntry.Directory.ToString();
+            //fs.Path = path;
+            //fs.LastWriteTimeUtc = fileSystemEntry.LastWriteTimeUtc;
+            //fs.Length = fileSystemEntry.Length;
+
+            //_state.Mark(fs, _version);
+
         }
 
         private void acceptChanges()
@@ -114,7 +133,10 @@ namespace YellowCounter.FileSystemState
             return result;
         }
 
-        private (IEnumerable<FileState> creates, IEnumerable<FileState> changes, IEnumerable<FileState> removals) getFileChanges()
+        private (
+            IEnumerable<FileState> creates,
+            IEnumerable<FileState> changes,
+            IEnumerable<FileState> removals) getFileChanges()
         {
             var creates = new List<FileState>();
             var changes = new List<FileState>();
@@ -195,19 +217,7 @@ namespace YellowCounter.FileSystemState
                 .ToList();
         }
 
-        public void Accept(ref FileSystemEntry fileSystemEntry)
-        {
-            string path = fileSystemEntry.FileName.ToString();
 
-            FileState fs = new FileState();
-            fs.Directory = fileSystemEntry.Directory.ToString();
-            fs.Path = path;
-            fs.LastWriteTimeUtc = fileSystemEntry.LastWriteTimeUtc;
-            fs.Length = fileSystemEntry.Length;
-
-            _state.Mark(fs, _version);
-
-        }
 
         protected internal virtual bool ShouldIncludeEntry(ref FileSystemEntry entry)
         {

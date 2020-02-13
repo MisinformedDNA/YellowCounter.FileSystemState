@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Runtime.Serialization;
 using System.Linq;
+using System.IO.Enumeration;
 
 namespace YellowCounter.FileSystemState
 {
@@ -9,57 +10,178 @@ namespace YellowCounter.FileSystemState
     internal class PathToFileStateHashtable
     {
         HashSet<FileState> hash;
+        Dictionary<int, List<FileState>> dict;
         public PathToFileStateHashtable() 
         {
             hash = new HashSet<FileState>(100, new FileStateComparer());
+
+            dict = new Dictionary<int, List<FileState>>();
         }
-
-        public void Mark(FileState input, long version)
+        
+        internal void Mark(ref FileSystemEntry input,long version)
         {
-            // Is the file already known to us?
-            if(hash.TryGetValue(input, out FileState fs))
+            // Without allocating strings, calculate a hashcode based on the
+            // directory and filename.
+            int hashCode = HashCode.Combine(
+                input.Directory.GetHashOfContents(),
+                input.FileName.GetHashOfContents());
+
+            if(dict.TryGetValue(hashCode, out var fileStates))
             {
-                // Mark that we've seen the file.
-                fs.LastSeenVersion = version;
+                bool found = false;
 
-                // Has it changed since we last saw it?
-                if(fs.LastWriteTimeUtc != input.LastWriteTimeUtc
-                    || fs.Length != input.Length)
+                // Normally there will only be 1 but we could get a hash collision.
+                foreach(var existing in fileStates)
                 {
-                    // Mark that this version was a change
-                    fs.ChangeVersion = version;
+                    // We've only matched on hashcode so far, so there could be false
+                    // matches in here. Do a proper comparision on filename/directory.
 
-                    // Update the last write time / file length.
-                    fs.LastWriteTimeUtc = input.LastWriteTimeUtc;
-                    fs.Length = input.Length;
+                    // Use Equals() to match to avoid allocating strings.
+                    if(input.FileName.Equals(existing.Path, StringComparison.Ordinal)
+                        && input.Directory.Equals(existing.Directory, StringComparison.Ordinal))
+                    {
+                        // Found the file; compare to our existing record so we can
+                        // detect if it has been modified.
+                        markExisting(existing, input, version);
 
+                        found = true;
+                        break;
+                    }
+                }
+
+                // Hash collision! Add on the end of the list.
+                if(!found)
+                {
+                    fileStates.Add(newFileState(input, version));
                 }
             }
-            else // It's a new file.
+            else
             {
-                // Don't futz the input, clone it
-                FileState fs2 = input.Clone();
-
-                // Mark that we've seen it
-                fs2.LastSeenVersion = version;
-                fs2.CreateVersion = version;
-                fs2.ChangeVersion = version;
-
-                hash.Add(fs2);
+                // Not seen before, create a 1-element list and add to the dictionary.
+                dict.Add(hashCode, new List<FileState>() { newFileState(input, version) });
             }
         }
 
-        internal void Sweep(long version)
+        private void markExisting(FileState fs, FileSystemEntry input, long version)
         {
-            // Remove the records of files that have been deleted.
-            hash.RemoveWhere(x => x.LastSeenVersion != version);
+            // Mark that we've seen the file.
+            fs.LastSeenVersion = version;
+
+            // Has it changed since we last saw it?
+            if(fs.LastWriteTimeUtc != input.LastWriteTimeUtc
+                || fs.Length != input.Length)
+            {
+                // Mark that this version was a change
+                fs.ChangeVersion = version;
+
+                // Update the last write time / file length.
+                fs.LastWriteTimeUtc = input.LastWriteTimeUtc;
+                fs.Length = input.Length;
+            }
+        }
+
+        private FileState newFileState(FileSystemEntry input, long version)
+        {
+            var fileState = new FileState();
+
+            fileState.LastSeenVersion = version;
+            fileState.CreateVersion = version;
+            fileState.ChangeVersion = version;
+
+            // Here's where we're allocating the strings. Note we only do this when
+            // we first see a file, not on each subsequent scan for changes.
+            fileState.Directory = input.Directory.ToString();
+            fileState.Path = input.FileName.ToString();
+
+            fileState.LastWriteTimeUtc = input.LastWriteTimeUtc;
+            fileState.Length = input.Length;
+
+            return fileState;
         }
 
         public IEnumerable<FileState> Read()
         {
-            foreach(var x in hash)
+            foreach(var x in dict.Values.SelectMany(y => y))
+            {
                 yield return x;
+            }
         }
+
+        public void Sweep(long version)
+        {
+            var toRemove = new List<int>();
+
+            // Go through every list of filestates in our state dictionary
+            foreach(var (hash, list) in dict)
+            {
+                // Remove any item in the list which we didn't see on the last mark
+                // phase (every item that is seen gets the LastSeenVersion updated)
+                list.RemoveAll(x => x.LastSeenVersion != version);
+
+                // In the normal case where there are no hash collisions, this will
+                // remove the one and only item from the list. We can then remove
+                // the hash entry from the dictionary.
+                // If there was a hash collision, the reduced-size list would remain.
+                if(list.Count == 0)
+                {
+                    toRemove.Add(hash);
+                }
+            }
+
+            // We can't remove the items while iterating so remove here instead.
+            foreach(var hash in toRemove)
+            {
+                dict.Remove(hash);
+            }
+        }
+
+        //public void Mark(FileState input, long version)
+        //{
+        //    // Is the file already known to us?
+        //    if(hash.TryGetValue(input, out FileState fs))
+        //    {
+        //        // Mark that we've seen the file.
+        //        fs.LastSeenVersion = version;
+
+        //        // Has it changed since we last saw it?
+        //        if(fs.LastWriteTimeUtc != input.LastWriteTimeUtc
+        //            || fs.Length != input.Length)
+        //        {
+        //            // Mark that this version was a change
+        //            fs.ChangeVersion = version;
+
+        //            // Update the last write time / file length.
+        //            fs.LastWriteTimeUtc = input.LastWriteTimeUtc;
+        //            fs.Length = input.Length;
+
+        //        }
+        //    }
+        //    else // It's a new file.
+        //    {
+        //        // Don't futz the input, clone it
+        //        FileState fs2 = input.Clone();
+
+        //        // Mark that we've seen it
+        //        fs2.LastSeenVersion = version;
+        //        fs2.CreateVersion = version;
+        //        fs2.ChangeVersion = version;
+
+        //        hash.Add(fs2);
+        //    }
+        //}
+
+        //internal void Sweep(long version)
+        //{
+        //    // Remove the records of files that have been deleted.
+        //    hash.RemoveWhere(x => x.LastSeenVersion != version);
+        //}
+
+        //public IEnumerable<FileState> Read()
+        //{
+        //    foreach(var x in hash)
+        //        yield return x;
+        //}
+
     }
 
     internal class FileStateComparer : IEqualityComparer<FileState>

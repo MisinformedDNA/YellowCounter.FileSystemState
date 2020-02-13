@@ -8,7 +8,7 @@ using System.Runtime.InteropServices;
 
 namespace YellowCounter.FileSystemState
 {
-    internal class FileSystemChangeEnumerator : FileSystemEnumerator<string>
+    internal class FileSystemChangeEnumerator : FileSystemEnumerator<object>
     {
         private FileSystemState _watcher;
         private readonly string filter;
@@ -25,28 +25,21 @@ namespace YellowCounter.FileSystemState
         public FileSystemChangeEnumerator(
             string filter,
             string path,
-            EnumerationOptions enumerationOptions)
+            EnumerationOptions enumerationOptions,
+            IAcceptFileSystemEntry acceptFileSystemEntry)
             : base(path, enumerationOptions)
         {
             this.filter = filter;
-        }
-
-        public void Scan(IAcceptFileSystemEntry acceptFileSystemEntry)
-        {
             this.acceptFileSystemEntry = acceptFileSystemEntry;
-
-            try
-            {
-                // Enumerating causes TransformEntry() to be called repeatedly
-                while(MoveNext()) { }
-            }
-            finally
-            {
-                this.acceptFileSystemEntry = null;
-            }
         }
 
-        protected override string TransformEntry(ref FileSystemEntry entry)
+        public void Scan()
+        {
+            // Enumerating causes TransformEntry() to be called repeatedly
+            while(MoveNext()) { }
+        }
+
+        protected override object TransformEntry(ref FileSystemEntry entry)
         {
             acceptFileSystemEntry.Accept(ref entry);
 
