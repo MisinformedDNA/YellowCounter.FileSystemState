@@ -11,7 +11,7 @@ namespace YellowCounter.FileSystemState
     public class FileSystemState : IAcceptFileSystemEntry 
     {
         private long _version = 0L;
-        private PathToFileStateHashtable _state = new PathToFileStateHashtable();
+        private PathToFileStateHashtable _state = new PathToFileStateHashtable(new StringInternPool());
 
         public FileSystemState(string path, string filter = "*", EnumerationOptions options = null)
         {

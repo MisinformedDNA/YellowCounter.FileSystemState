@@ -296,4 +296,14 @@ public partial class FileSystemStateUnitTests
             Directory.Delete(currentDir, true);
         }
     }
+
+
+    [Fact]
+    public static void FileSystemWatcher_BigDir()
+    {
+        string currentDir = @"C:\Users\SpanWork\Documents";
+
+        FileSystemState watcher = new FileSystemState(currentDir,  options: new EnumerationOptions { RecurseSubdirectories = true });
+        watcher.LoadState();
+    }
 }
