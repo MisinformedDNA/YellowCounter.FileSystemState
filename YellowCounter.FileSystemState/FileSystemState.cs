@@ -11,38 +11,43 @@ namespace YellowCounter.FileSystemState
     public class FileSystemState : IAcceptFileSystemEntry 
     {
         private long _version = 0L;
-        private PathToFileStateHashtable _state = new PathToFileStateHashtable(new StringInternPool());
+        private PathToFileStateHashtable _state;
 
-        public FileSystemState(string path, string filter = "*", EnumerationOptions options = null)
+        public FileSystemState(string rootDir, string filter = "*", EnumerationOptions options = null)
         {
-            Path = path ?? throw new ArgumentNullException(nameof(path));
-            Filter = filter ?? throw new ArgumentNullException(nameof(filter));
+            this.RootDir = rootDir ?? throw new ArgumentNullException(nameof(rootDir));
+            this.Filter = filter ?? throw new ArgumentNullException(nameof(filter));
 
-            if (!Directory.Exists(path))
+            if (!Directory.Exists(rootDir))
                 throw new DirectoryNotFoundException();
 
             EnumerationOptions = options ?? new EnumerationOptions();
+
+            _state = new PathToFileStateHashtable(new StringInternPool(), this.RootDir.Length);
         }
 
-        public string Path { get; set; }
+        public string RootDir { get; set; }
         public string Filter { get; set; }
         public EnumerationOptions EnumerationOptions { get; set; }
 
         public void LoadState()
         {
-            GetChanges();
+            // Set initial baseline by reading current directory state without returning
+            // every file as a change.
+            gatherChanges();
+            acceptChanges();
         }
 
         public void LoadState(Stream stream)
         {
-            BinaryFormatter serializer = new BinaryFormatter();
-            _state = (PathToFileStateHashtable)serializer.Deserialize(stream);
+            //BinaryFormatter serializer = new BinaryFormatter();
+            //_state = (PathToFileStateHashtable)serializer.Deserialize(stream);
         }
 
         public void SaveState(Stream stream)
         {
-            BinaryFormatter serializer = new BinaryFormatter();
-            serializer.Serialize(stream, _state);
+            //BinaryFormatter serializer = new BinaryFormatter();
+            //serializer.Serialize(stream, _state);
         }
 
         // This function walks all watched files, collects changes, and updates state
@@ -65,7 +70,7 @@ namespace YellowCounter.FileSystemState
         {
             var enumerator = new FileSystemChangeEnumerator(
                 this.Filter,
-                this.Path, 
+                this.RootDir, 
                 this.EnumerationOptions,
                 this);
 
@@ -103,24 +108,24 @@ namespace YellowCounter.FileSystemState
         {
             var createResults = creates
                 .Except(renames.Select(x => x.NewFile))
-                .Select(x => new FileChange(x.Directory, x.Path, WatcherChangeTypes.Created))
+                .Select(x => new FileChange(this.RootDir + x.RelativeDir, x.FileName, WatcherChangeTypes.Created))
                 ;
 
             var changeResults = changes
-                .Select(x => new FileChange(x.Directory, x.Path, WatcherChangeTypes.Changed))
+                .Select(x => new FileChange(this.RootDir + x.RelativeDir, x.FileName, WatcherChangeTypes.Changed))
                 ;
 
             var removeResults = removals
                 .Except(renames.Select(x => x.OldFile))
-                .Select(x => new FileChange(x.Directory, x.Path, WatcherChangeTypes.Deleted))
+                .Select(x => new FileChange(this.RootDir + x.RelativeDir, x.FileName, WatcherChangeTypes.Deleted))
                 ;
 
             var renameResults = renames.Select(x => new FileChange(
-                x.NewFile.Directory,
-                x.NewFile.Path,
+                this.RootDir + x.NewFile.RelativeDir,
+                x.NewFile.FileName,
                 WatcherChangeTypes.Renamed,
-                x.OldFile.Directory,
-                x.OldFile.Path))
+                this.RootDir + x.OldFile.RelativeDir,
+                x.OldFile.FileName))
                 ;
             
             var result = new FileChangeList();
@@ -184,7 +189,7 @@ namespace YellowCounter.FileSystemState
                     // Group by last write time, length and directory or filename
                     x.LastWriteTimeUtc,
                     x.Length,
-                    Name = byName ? x.Directory : x.Path
+                    Name = byName ? x.RelativeDir : x.FileName
                 },
                     (x, y) => new
                     {
@@ -198,7 +203,7 @@ namespace YellowCounter.FileSystemState
                 .ToList();
 
             var removesByTime = removals
-                .GroupBy(x => new { x.LastWriteTimeUtc, x.Length, Name = byName ? x.Directory : x.Path },
+                .GroupBy(x => new { x.LastWriteTimeUtc, x.Length, Name = byName ? x.RelativeDir : x.FileName },
                 (x, y) => new { x.LastWriteTimeUtc, x.Length, x.Name, Removes = y.ToList() })
                 .ToList();
 

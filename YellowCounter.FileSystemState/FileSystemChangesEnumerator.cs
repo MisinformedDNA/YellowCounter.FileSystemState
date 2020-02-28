@@ -2,6 +2,7 @@
 // Licensed under the MIT license. See LICENSE file in the project root for full license information.
 
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.IO.Enumeration;
 using System.Runtime.InteropServices;
@@ -10,9 +11,9 @@ namespace YellowCounter.FileSystemState
 {
     internal class FileSystemChangeEnumerator : FileSystemEnumerator<object>
     {
-        private FileSystemState _watcher;
         private readonly string filter;
         private IAcceptFileSystemEntry acceptFileSystemEntry;
+        //private string currentDirectory;
 
         private static bool ignoreCase;
 
@@ -39,6 +40,13 @@ namespace YellowCounter.FileSystemState
             while(MoveNext()) { }
         }
 
+        protected override void OnDirectoryFinished(ReadOnlySpan<char> directory)
+        {
+            //currentDirectory = null;
+
+            base.OnDirectoryFinished(directory);
+        }
+
         protected override object TransformEntry(ref FileSystemEntry entry)
         {
             acceptFileSystemEntry.Accept(ref entry);
@@ -48,6 +56,9 @@ namespace YellowCounter.FileSystemState
 
         protected override bool ShouldIncludeEntry(ref FileSystemEntry entry)
         {
+            //if(currentDirectory == null)
+            //    currentDirectory = entry.Directory.ToString();
+
             if(entry.IsDirectory)
                 return false;
 

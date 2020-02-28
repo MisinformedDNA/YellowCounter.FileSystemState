@@ -11,7 +11,7 @@ public partial class FileSystemStateUnitTests
 
         string path = Environment.CurrentDirectory;
         var watcher = new FileSystemState(path);
-        Assert.Equal(path, watcher.Path);
+        Assert.Equal(path, watcher.RootDir);
         Assert.Equal("*", watcher.Filter);
         Assert.NotNull(watcher.EnumerationOptions);
     }
@@ -23,7 +23,7 @@ public partial class FileSystemStateUnitTests
         const string filter = "*.csv";
         var watcher = new FileSystemState(currentDir, filter, new EnumerationOptions { RecurseSubdirectories = true });
 
-        Assert.Equal(currentDir, watcher.Path);
+        Assert.Equal(currentDir, watcher.RootDir);
         Assert.Equal(filter, watcher.Filter);
         Assert.True(watcher.EnumerationOptions.RecurseSubdirectories);
     }
@@ -32,7 +32,7 @@ public partial class FileSystemStateUnitTests
     public static void FileSystemWatcher_ctor_Null()
     {
         // Not valid
-        Assert.Throws<ArgumentNullException>("path", () => new FileSystemState(null));
+        Assert.Throws<ArgumentNullException>("rootDir", () => new FileSystemState(null));
         Assert.Throws<ArgumentNullException>("filter", () => new FileSystemState(Environment.CurrentDirectory, null));
 
         // Valid
@@ -305,5 +305,7 @@ public partial class FileSystemStateUnitTests
 
         FileSystemState watcher = new FileSystemState(currentDir,  options: new EnumerationOptions { RecurseSubdirectories = true });
         watcher.LoadState();
+
+        var q = watcher.GetChanges();
     }
 }

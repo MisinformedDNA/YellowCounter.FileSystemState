@@ -11,19 +11,26 @@ namespace YellowCounter.FileSystemState
     {
         Dictionary<int, List<FileState>> dict;
         private readonly IStringInternPool stringInternPool;
+        private readonly int truncate;
 
-        public PathToFileStateHashtable(IStringInternPool stringInternPool) 
+        public PathToFileStateHashtable(IStringInternPool stringInternPool, int truncate = 0) 
         {
             dict = new Dictionary<int, List<FileState>>();
             this.stringInternPool = stringInternPool;
+            this.truncate = truncate;
         }
-        
+
         internal void Mark(ref FileSystemEntry input,long version)
         {
+            // If we are scanning folder c:\verylongdirectoryname\ there is no need to store
+            // the same text c:\verylongdirectoryname\ over and over again so we remove the
+            // root from the directory name leaving the relative path
+            var relativeDir = input.Directory.Slice(truncate);
+
             // Without allocating strings, calculate a hashcode based on the
             // directory and filename.
             int hashCode = HashCode.Combine(
-                input.Directory.GetHashOfContents(),
+                relativeDir.GetHashOfContents(),
                 input.FileName.GetHashOfContents());
 
             if(dict.TryGetValue(hashCode, out var fileStates))
@@ -37,8 +44,8 @@ namespace YellowCounter.FileSystemState
                     // matches in here. Do a proper comparision on filename/directory.
 
                     // Use Equals() to match to avoid allocating strings.
-                    if(input.FileName.Equals(existing.Path, StringComparison.Ordinal)
-                        && input.Directory.Equals(existing.Directory, StringComparison.Ordinal))
+                    if(input.FileName.Equals(existing.FileName, StringComparison.Ordinal)
+                        && relativeDir.Equals(existing.RelativeDir, StringComparison.Ordinal))
                     {
                         // Found the file; compare to our existing record so we can
                         // detect if it has been modified.
@@ -52,13 +59,13 @@ namespace YellowCounter.FileSystemState
                 // Hash collision! Add on the end of the list.
                 if(!found)
                 {
-                    fileStates.Add(newFileState(input, version));
+                    fileStates.Add(newFileState(input, ref relativeDir, version));
                 }
             }
             else
             {
                 // Not seen before, create a 1-element list and add to the dictionary.
-                dict.Add(hashCode, new List<FileState>() { newFileState(input, version) });
+                dict.Add(hashCode, new List<FileState>() { newFileState(input, ref relativeDir, version) });
             }
         }
 
@@ -80,7 +87,7 @@ namespace YellowCounter.FileSystemState
             }
         }
 
-        private FileState newFileState(FileSystemEntry input, long version)
+        private FileState newFileState(FileSystemEntry input, ref ReadOnlySpan<char> relativeDir, long version)
         {
             var fileState = new FileState();
 
@@ -90,11 +97,10 @@ namespace YellowCounter.FileSystemState
 
             // Here's where we're allocating the strings. Note we only do this when
             // we first see a file, not on each subsequent scan for changes.
-            var dir = input.Directory;
             var fn = input.FileName;
 
-            fileState.Directory = stringInternPool.Intern(ref dir);
-            fileState.Path = stringInternPool.Intern(ref fn);
+            fileState.RelativeDir = stringInternPool.Intern(ref relativeDir);
+            fileState.FileName = stringInternPool.Intern(ref fn);
 
             //fileState.Directory = input.Directory.ToString();
             //fileState.Path = input.FileName.ToString();

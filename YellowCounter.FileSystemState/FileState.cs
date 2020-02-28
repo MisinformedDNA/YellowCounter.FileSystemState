@@ -16,8 +16,8 @@ namespace YellowCounter.FileSystemState
         [NonSerialized]
         public long ChangeVersion;
 
-        public string Directory;
-        public string Path;
+        public string RelativeDir;
+        public string FileName;
         public DateTimeOffset LastWriteTimeUtc;
         public long Length;
 
