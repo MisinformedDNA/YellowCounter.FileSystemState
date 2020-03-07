@@ -8,13 +8,13 @@ namespace YellowCounter.FileSystemState.PathRedux
     {
         private readonly int linearSearchLimit;
         private CharBuffer charBuffer;
-        private ChainedLookup chainedLookup;
+        private HashBucket chainedLookup;
         private IHashFunction hashFunction;
 
         public HashedCharBuffer(HashedCharBufferOptions options)
         {
             charBuffer = new CharBuffer(options.InitialCharCapacity);
-            chainedLookup = new ChainedLookup(options.InitialHashCapacity, options.LinearSearchLimit);
+            chainedLookup = new HashBucket(options.InitialHashCapacity, options.LinearSearchLimit);
 
             this.hashFunction = options.HashFunction;
             this.linearSearchLimit = options.LinearSearchLimit;
@@ -81,7 +81,7 @@ namespace YellowCounter.FileSystemState.PathRedux
         private void rebuildLookup()
         {
             // Doubling capacity will halve the number of moduloed hash collisions
-            var newLookup = new ChainedLookup(chainedLookup.Capacity * 2, linearSearchLimit);
+            var newLookup = new HashBucket(chainedLookup.Capacity * 2, linearSearchLimit);
 
             // Populate a new lookup from our existing data.
             foreach(var itm in charBuffer)

@@ -8,12 +8,12 @@ using Shouldly;
 namespace PathReduxTests.PathRedux
 {
     [TestClass]
-    public class ChainedLookupTests
+    public class HashBucketTests
     {
         [TestMethod]
-        public void ChainedLookupStoreRetrieve()
+        public void HashBucketStoreRetrieve()
         {
-            var m = new ChainedLookup(2, 2);
+            var m = new HashBucket(2, 2);
 
             m.Store(0, 123456).ShouldBe(true);
             m.Store(0, 765432).ShouldBe(true);
@@ -24,9 +24,9 @@ namespace PathReduxTests.PathRedux
         }
 
         [TestMethod]
-        public void ChainedLookupStoreFlowpast()
+        public void HashBucketStoreFlowpast()
         {
-            var m = new ChainedLookup(2, 2);
+            var m = new HashBucket(2, 2);
 
             m.Store(1, 123456).ShouldBe(true);
             m.Store(1, 765432).ShouldBe(false);
@@ -37,9 +37,9 @@ namespace PathReduxTests.PathRedux
         }
 
         [TestMethod]
-        public void ChainedLookupStoreZero()
+        public void HashBucketStoreZero()
         {
-            var m = new ChainedLookup(2, 2);
+            var m = new HashBucket(2, 2);
 
             // It can store a zero
             m.Store(0, 0).ShouldBe(true);
@@ -49,9 +49,9 @@ namespace PathReduxTests.PathRedux
         }
 
         [TestMethod]
-        public void ChainedLookupChainLimit()
+        public void HashBucketChainLimit()
         {
-            var m = new ChainedLookup(8, 2);
+            var m = new HashBucket(8, 2);
 
             m.Store(0, 100).ShouldBe(true);
             m.Store(0, 200).ShouldBe(true);
@@ -63,9 +63,9 @@ namespace PathReduxTests.PathRedux
         }
 
         [TestMethod]
-        public void ChainedLookupOverlap()
+        public void HashBucketOverlap()
         {
-            var m = new ChainedLookup(8, 8);
+            var m = new HashBucket(8, 8);
 
             // The values are going to overlap.
             m.Store(0, 100).ShouldBe(true);
@@ -78,9 +78,9 @@ namespace PathReduxTests.PathRedux
         }
 
         [TestMethod]
-        public void ChainedLookupOverlapLimited()
+        public void HashBucketOverlapLimited()
         {
-            var m = new ChainedLookup(8, 2);
+            var m = new HashBucket(8, 2);
 
             // If we set the max chain to a lower value then the overlap
             // won't occur.

@@ -6,14 +6,14 @@ using System.Text;
 
 namespace YellowCounter.FileSystemState.PathRedux
 {
-    public class ChainedLookup
+    public class HashBucket
     {
         private Memory<int> mem;
         private readonly int capacity;
         private readonly int maxChain;
         private BitArray usage;
 
-        public ChainedLookup(int capacity, int maxChain)
+        public HashBucket(int capacity, int maxChain)
         {
             mem = new int[capacity];
             usage = new BitArray(capacity);
