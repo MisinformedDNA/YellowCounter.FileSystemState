@@ -82,7 +82,51 @@ namespace YellowCounter.FileSystemState.PathRedux
             return begin.Slice(0, len);
         }
 
+        public string CreateString(IEnumerable<int> indices)
+        {
+            int totalLen = 0;
+            var posLens = new List<PosLen>();
+            // Gather up pos / lens
 
+            var bufSpan = buffer.Span;
+
+            foreach(var idx in indices)
+            {
+                var tail = bufSpan.Slice(idx);
+                var len = tail.IndexOf('\0');
+
+                totalLen += len;
+                posLens.Add(new PosLen(idx, len));
+                //var text = tail.Slice(0, len);
+            }
+
+            return String.Create(totalLen, (buffer, posLens, totalLen),
+                (chars, state) =>
+                {
+                    var span = state.buffer.Span;
+                    var pos = state.totalLen;
+
+                    foreach(var posLen in posLens)
+                    {
+                        var text = span.Slice(posLen.Pos, posLen.Len);
+
+                        pos -= posLen.Len;
+
+                        text.CopyTo(chars.Slice(pos, posLen.Len));
+                    }
+                });
+        }
+
+        private readonly struct PosLen
+        {
+            public PosLen(int pos, int len)
+            {
+                this.Pos = pos;
+                this.Len = len;
+            }
+            public int Pos { get; }
+            public int Len { get; }
+        }
 
         public Enumerator GetEnumerator()
         {

@@ -64,6 +64,8 @@ namespace YellowCounter.FileSystemState.PathRedux
             return charBuffer.Retrieve(pos);
         }
 
+        public string CreateString(IEnumerable<int> indices) => charBuffer.CreateString(indices);
+
         public int Find(ReadOnlySpan<char> text)
         {
             int hash = hashSequence(text);
