@@ -9,13 +9,21 @@ namespace YellowCounter.FileSystemState.PathRedux
         private readonly int linearSearchLimit;
         private CharBuffer charBuffer;
         private ChainedLookup chainedLookup;
+        private IHashFunction hashFunction;
 
-        public HashedCharBuffer(int initialCharCapacity, int initialHashCapacity, int linearSearchLimit)
+        public HashedCharBuffer(HashedCharBufferOptions options)
         {
-            charBuffer = new CharBuffer(initialCharCapacity);
-            chainedLookup = new ChainedLookup(initialHashCapacity, linearSearchLimit);
-            this.linearSearchLimit = linearSearchLimit;
+            charBuffer = new CharBuffer(options.InitialCharCapacity);
+            chainedLookup = new ChainedLookup(options.InitialHashCapacity, options.LinearSearchLimit);
+
+            this.hashFunction = options.HashFunction;
+            this.linearSearchLimit = options.LinearSearchLimit;
         }
+
+        public int LinearSearchLimit => this.linearSearchLimit;
+        public int CharCapacity => charBuffer.Capacity;
+        public int HashCapacity => chainedLookup.Capacity;
+        public IHashFunction HashFunction => hashFunction;
 
         /// <summary>
         /// Returns index position
@@ -24,7 +32,7 @@ namespace YellowCounter.FileSystemState.PathRedux
         /// <returns></returns>
         public int Store(ReadOnlySpan<char> text)
         {
-            int hash = text.GetHashOfContents();
+            int hash = hashSequence(text);
             int foundPos = findByHash(hash, text);
 
             if(foundPos != -1)
@@ -58,7 +66,7 @@ namespace YellowCounter.FileSystemState.PathRedux
 
         public int Find(ReadOnlySpan<char> text)
         {
-            int hash = text.GetHashOfContents();
+            int hash = hashSequence(text);
             return findByHash(hash, text);
         }
 
@@ -68,16 +76,18 @@ namespace YellowCounter.FileSystemState.PathRedux
             return charBuffer.Match(text, indices);
         }
 
+        private int hashSequence(ReadOnlySpan<char> text) => hashFunction.HashSequence(text);
+        
         private void rebuildLookup()
         {
-            // Doubling capacity will halve the number of hash collisions
+            // Doubling capacity will halve the number of moduloed hash collisions
             var newLookup = new ChainedLookup(chainedLookup.Capacity * 2, linearSearchLimit);
 
             // Populate a new lookup from our existing data.
             foreach(var itm in charBuffer)
             {
-                if(!newLookup.Store(itm.Span.GetHashOfContents(), itm.Pos))
-                    throw new Exception("Oops");
+                if(!newLookup.Store(hashSequence(itm.Span), itm.Pos))
+                    throw new Exception($"Too many hash collisions. Increase {nameof(LinearSearchLimit)} to overcome.");
             }
 
             // Use the new lookup

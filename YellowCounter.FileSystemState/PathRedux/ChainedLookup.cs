@@ -52,6 +52,11 @@ namespace YellowCounter.FileSystemState.PathRedux
             return false;
         }
 
+        /// <summary>
+        /// Modulo divide the hash by our capacity
+        /// </summary>
+        /// <param name="hash"></param>
+        /// <returns></returns>
         private int keyFromHash(int hash) => (int)unchecked((uint)hash % (uint)Capacity);
 
         public ReadOnlySpan<int> Retrieve(int hash)
