@@ -25,13 +25,13 @@ namespace YellowCounter.FileSystemState.PathRedux
 
         public bool Store(int hash, int value)
         {
-            int key = keyFromHash(hash);
+            int bucket = bucketFromHash(hash);
 
             var span = mem.Span;
             int chainLen = 0;
 
             // Look for an empty slot in our buffer
-            for(int i = key; i < capacity; i++)
+            for(int i = bucket; i < capacity; i++)
             {
                 if(!usage[i])
                 {
@@ -57,11 +57,11 @@ namespace YellowCounter.FileSystemState.PathRedux
         /// </summary>
         /// <param name="hash"></param>
         /// <returns></returns>
-        private int keyFromHash(int hash) => (int)unchecked((uint)hash % (uint)Capacity);
+        private int bucketFromHash(int hash) => (int)unchecked((uint)hash % (uint)Capacity);
 
         public ReadOnlySpan<int> Retrieve(int hash)
         {
-            int key = keyFromHash(hash); 
+            int key = bucketFromHash(hash); 
 
             var span = mem.Span;
             int chainLen = 0;
