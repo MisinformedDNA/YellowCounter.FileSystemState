@@ -23,7 +23,7 @@ namespace YellowCounter.FileSystemState
 
             EnumerationOptions = options ?? new EnumerationOptions();
 
-            _state = new PathToFileStateHashtable(new StringInternPool(), this.RootDir.Length);
+            _state = new PathToFileStateHashtable(new StringInternPool());
         }
 
         public string RootDir { get; set; }
@@ -108,23 +108,23 @@ namespace YellowCounter.FileSystemState
         {
             var createResults = creates
                 .Except(renames.Select(x => x.NewFile))
-                .Select(x => new FileChange(this.RootDir + x.RelativeDir, x.FileName, WatcherChangeTypes.Created))
+                .Select(x => new FileChange(x.Directory, x.FileName, WatcherChangeTypes.Created))
                 ;
 
             var changeResults = changes
-                .Select(x => new FileChange(this.RootDir + x.RelativeDir, x.FileName, WatcherChangeTypes.Changed))
+                .Select(x => new FileChange(x.Directory, x.FileName, WatcherChangeTypes.Changed))
                 ;
 
             var removeResults = removals
                 .Except(renames.Select(x => x.OldFile))
-                .Select(x => new FileChange(this.RootDir + x.RelativeDir, x.FileName, WatcherChangeTypes.Deleted))
+                .Select(x => new FileChange(x.Directory, x.FileName, WatcherChangeTypes.Deleted))
                 ;
 
             var renameResults = renames.Select(x => new FileChange(
-                this.RootDir + x.NewFile.RelativeDir,
+                x.NewFile.Directory,
                 x.NewFile.FileName,
                 WatcherChangeTypes.Renamed,
-                this.RootDir + x.OldFile.RelativeDir,
+                x.OldFile.Directory,
                 x.OldFile.FileName))
                 ;
             
@@ -189,7 +189,7 @@ namespace YellowCounter.FileSystemState
                     // Group by last write time, length and directory or filename
                     x.LastWriteTimeUtc,
                     x.Length,
-                    Name = byName ? x.RelativeDir : x.FileName
+                    Name = byName ? x.Directory : x.FileName
                 },
                     (x, y) => new
                     {
@@ -203,7 +203,7 @@ namespace YellowCounter.FileSystemState
                 .ToList();
 
             var removesByTime = removals
-                .GroupBy(x => new { x.LastWriteTimeUtc, x.Length, Name = byName ? x.RelativeDir : x.FileName },
+                .GroupBy(x => new { x.LastWriteTimeUtc, x.Length, Name = byName ? x.Directory : x.FileName },
                 (x, y) => new { x.LastWriteTimeUtc, x.Length, x.Name, Removes = y.ToList() })
                 .ToList();
 

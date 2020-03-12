@@ -4,7 +4,7 @@ using System.Text;
 
 namespace YellowCounter.FileSystemState.PathRedux
 {
-    public class PathStorage
+    public class PathStorage : IPathStorage
     {
         private HashedCharBuffer buf;
         private HashBucket buckets;
@@ -25,7 +25,7 @@ namespace YellowCounter.FileSystemState.PathRedux
             entries = new List<Entry>();
 
             // Create a root entry so 0 is not a valid index
-            entries.Add(new Entry(-1,-1));
+            entries.Add(new Entry(-1, -1));
         }
 
         public int Store(ReadOnlySpan<char> arg)
