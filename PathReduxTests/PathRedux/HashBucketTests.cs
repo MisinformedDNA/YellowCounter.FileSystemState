@@ -29,11 +29,11 @@ namespace PathReduxTests.PathRedux
             var m = new HashBucket(2, 2);
 
             m.Store(1, 123456).ShouldBe(true);
-            m.Store(1, 765432).ShouldBe(false);
+            m.Store(1, 765432).ShouldBe(true);
 
             var result = m.Retrieve(1);
 
-            result.ToArray().ShouldBe(new[] { 123456 });
+            result.ToArray().ShouldBe(new[] { 123456, 765432 });
         }
 
         [TestMethod]
@@ -90,6 +90,17 @@ namespace PathReduxTests.PathRedux
 
             m.Retrieve(0).ToArray().ShouldBe(new[] { 100, 200 });
             m.Retrieve(1).ToArray().ShouldBe(new[] { 200 });
+        }
+
+        [TestMethod]
+        public void HashBucketWraparound()
+        {
+            var m = new HashBucket(4, 2);
+
+            m.Store(3, 100).ShouldBe(true);
+            m.Store(3, 200).ShouldBe(true);
+
+            m.Retrieve(3).ToArray().ShouldBe(new[] { 100, 200 });
         }
     }
 }

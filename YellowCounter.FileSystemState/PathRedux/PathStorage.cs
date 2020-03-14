@@ -9,6 +9,7 @@ namespace YellowCounter.FileSystemState.PathRedux
         private HashedCharBuffer buf;
         private HashBucket buckets;
         private List<Entry> entries;
+        private const int Root = -1;
 
         public PathStorage()
         {
@@ -23,9 +24,6 @@ namespace YellowCounter.FileSystemState.PathRedux
             buckets = new HashBucket(128, 16);
 
             entries = new List<Entry>();
-
-            // Create a root entry so 0 is not a valid index
-            entries.Add(new Entry(-1, -1));
         }
 
         public int Store(ReadOnlySpan<char> arg)
@@ -47,7 +45,7 @@ namespace YellowCounter.FileSystemState.PathRedux
             // No more slash delimiters, so store a root entry (parent index 0).
             if(slashPos == -1)
             {
-                parentIdx = 0;
+                parentIdx = Root;
                 textRef = buf.Store(arg);
             }
             else
@@ -107,7 +105,7 @@ namespace YellowCounter.FileSystemState.PathRedux
         {
             int cursorIdx = idx;
 
-            while(cursorIdx != 0)
+            while(cursorIdx != Root)
             {
                 var entry = entries[cursorIdx];
 
@@ -140,7 +138,7 @@ namespace YellowCounter.FileSystemState.PathRedux
                 // Loop round to our parent entry
                 cursorIdx = entry.ParentIdx;
 
-                if(cursorIdx == 0)
+                if(cursorIdx == Root)
                 {
                     // If the target has no parent, and we've examined all of arg
                     // then we've got a correct match

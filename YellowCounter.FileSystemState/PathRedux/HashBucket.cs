@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Buffers;
 using System.Collections;
 using System.Collections.Generic;
 using System.Collections.Specialized;
@@ -15,38 +16,47 @@ namespace YellowCounter.FileSystemState.PathRedux
 
         public HashBucket(int capacity, int maxChain)
         {
-            mem = new int[capacity];
+            mem = new int[capacity + maxChain];
             usage = new BitArray(capacity);
+
             this.capacity = capacity;
             this.maxChain = maxChain;
         }
 
-        public int Capacity => mem.Length;
+        public int Capacity => this.capacity;
+        public int MaxChain => this.maxChain;
 
         public bool Store(int hash, int value)
         {
             int bucket = bucketFromHash(hash);
 
             var span = mem.Span;
-            int chainLen = 0;
 
-            // Look for an empty slot in our buffer
-            for(int i = bucket; i < capacity; i++)
+            for(int c = 0; c < maxChain; c++)
             {
-                if(!usage[i])
+                int i = bucket + c;
+                int j = i % capacity;
+
+                bool wrapAround = i != j;
+
+                if(!usage[j])
                 {
-                    span[i] = value;
-                    usage[i] = true;
+                    span[j] = value;
+                    usage[j] = true;
+
+                    // If wrapping around we have two copies of the values,
+                    // one at the normal position and one in the runoff area
+                    // at the end of the memory buffer.
+                    // This so we have a contiguous span to slice for the
+                    // return.
+                    if(wrapAround)
+                    {
+                        span[i] = value;
+                    }
 
                     return true;
                 }
 
-                chainLen++;
-                
-                // Don't build up too long a chain of values - we'll build a new
-                // buffer instead.
-                if(chainLen >= maxChain)
-                    return false;
             }
 
             return false;
@@ -59,22 +69,27 @@ namespace YellowCounter.FileSystemState.PathRedux
         /// <returns></returns>
         private int bucketFromHash(int hash) => (int)unchecked((uint)hash % (uint)Capacity);
 
+
         public ReadOnlySpan<int> Retrieve(int hash)
         {
-            int key = bucketFromHash(hash); 
+            int bucket = bucketFromHash(hash);
 
             var span = mem.Span;
-            int chainLen = 0;
 
-            for(int i = key; i < capacity && chainLen <= maxChain; i++)
+            int c = 0;
+
+            while(c < maxChain)
             {
-                if(!usage[i])
+                int j = (bucket + c) % capacity;
+
+                if(!usage[j])
                     break;
 
-                chainLen++;
+                c++;
             }
 
-            return mem.Span.Slice(key, chainLen);
+            return span.Slice(bucket, c);
         }
+
     }
 }
