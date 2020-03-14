@@ -64,7 +64,38 @@ namespace YellowCounter.FileSystemState.PathRedux
             int result = entries.Count;
             entries.Add(new Entry(textRef, parentIdx));
 
+            if(!buckets.Store(hash, result))
+            {
+                // Rebuild buckets from List<Entry> twice as big
+                rebuildBuckets();
+
+                if(!buckets.Store(hash, result))
+                    throw new Exception("Run out...");
+            }
+
             return result;
+        }
+
+        private void rebuildBuckets()
+        {
+            var newBuckets = new HashBucket(buckets.Capacity * 2, buckets.MaxChain);
+
+            for(int idx = 0; idx < entries.Count; idx++)
+            {
+                var h = new HashCode();
+
+                foreach(var textRef in chain(idx))
+                {
+                    var text = buf.Retrieve(textRef);
+                    h.Add(text.GetHashOfContents());
+                }
+
+                int hash = h.ToHashCode();
+
+                newBuckets.Store(hash, idx);
+            }
+
+            this.buckets = newBuckets;
         }
 
         public string CreateString(int idx)

@@ -5,6 +5,7 @@ using System.IO.Enumeration;
 using System.Runtime.InteropServices;
 using System.Runtime.Serialization.Formatters.Binary;
 using System.Linq;
+using YellowCounter.FileSystemState.PathRedux;
 
 namespace YellowCounter.FileSystemState
 {
@@ -23,12 +24,15 @@ namespace YellowCounter.FileSystemState
 
             EnumerationOptions = options ?? new EnumerationOptions();
 
-            _state = new PathToFileStateHashtable(new StringInternPool());
+            this.pathStorage = new PathStorage();
+            _state = new PathToFileStateHashtable(this.pathStorage);
         }
 
         public string RootDir { get; set; }
         public string Filter { get; set; }
         public EnumerationOptions EnumerationOptions { get; set; }
+
+        private readonly PathStorage pathStorage;
 
         public void LoadState()
         {
@@ -108,24 +112,24 @@ namespace YellowCounter.FileSystemState
         {
             var createResults = creates
                 .Except(renames.Select(x => x.NewFile))
-                .Select(x => new FileChange(x.Directory, x.FileName, WatcherChangeTypes.Created))
+                .Select(x => newFileChange(x.DirectoryRef, x.FilenameRef, WatcherChangeTypes.Created))
                 ;
 
             var changeResults = changes
-                .Select(x => new FileChange(x.Directory, x.FileName, WatcherChangeTypes.Changed))
+                .Select(x => newFileChange(x.DirectoryRef, x.FilenameRef, WatcherChangeTypes.Changed))
                 ;
 
             var removeResults = removals
                 .Except(renames.Select(x => x.OldFile))
-                .Select(x => new FileChange(x.Directory, x.FileName, WatcherChangeTypes.Deleted))
+                .Select(x => newFileChange(x.DirectoryRef, x.FilenameRef, WatcherChangeTypes.Deleted))
                 ;
 
-            var renameResults = renames.Select(x => new FileChange(
-                x.NewFile.Directory,
-                x.NewFile.FileName,
+            var renameResults = renames.Select(x => newFileChange2(
+                x.NewFile.DirectoryRef,
+                x.NewFile.FilenameRef,
                 WatcherChangeTypes.Renamed,
-                x.OldFile.Directory,
-                x.OldFile.FileName))
+                x.OldFile.DirectoryRef,
+                x.OldFile.FilenameRef))
                 ;
             
             var result = new FileChangeList();
@@ -136,6 +140,34 @@ namespace YellowCounter.FileSystemState
             result.AddRange(renameResults);
 
             return result;
+
+            FileChange newFileChange(
+                int directoryRef, 
+                int filenameRef,
+                WatcherChangeTypes changeType)
+            {
+                return new FileChange(
+                    pathStorage.CreateString(directoryRef),
+                    pathStorage.CreateString(filenameRef),
+                    changeType);
+            }
+
+            FileChange newFileChange2(
+                int newDirectoryRef,
+                int newFilenameRef,
+                WatcherChangeTypes changeType,
+                int oldDirectoryRef,
+                int oldFilenameRef
+                )
+            {
+                return new FileChange(
+                    pathStorage.CreateString(newDirectoryRef),
+                    pathStorage.CreateString(newFilenameRef),
+                    changeType,
+                    pathStorage.CreateString(oldDirectoryRef),
+                    pathStorage.CreateString(oldFilenameRef)
+                    );
+            }
         }
 
         private (
@@ -189,7 +221,7 @@ namespace YellowCounter.FileSystemState
                     // Group by last write time, length and directory or filename
                     x.LastWriteTimeUtc,
                     x.Length,
-                    Name = byName ? x.Directory : x.FileName
+                    Name = byName ? x.DirectoryRef : x.FilenameRef
                 },
                     (x, y) => new
                     {
@@ -203,7 +235,7 @@ namespace YellowCounter.FileSystemState
                 .ToList();
 
             var removesByTime = removals
-                .GroupBy(x => new { x.LastWriteTimeUtc, x.Length, Name = byName ? x.Directory : x.FileName },
+                .GroupBy(x => new { x.LastWriteTimeUtc, x.Length, Name = byName ? x.DirectoryRef : x.FilenameRef },
                 (x, y) => new { x.LastWriteTimeUtc, x.Length, x.Name, Removes = y.ToList() })
                 .ToList();
 

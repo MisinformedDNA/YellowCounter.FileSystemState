@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Runtime.Serialization;
 using System.Linq;
 using System.IO.Enumeration;
+using YellowCounter.FileSystemState.PathRedux;
 
 namespace YellowCounter.FileSystemState
 {
@@ -10,21 +11,27 @@ namespace YellowCounter.FileSystemState
     internal class PathToFileStateHashtable
     {
         Dictionary<int, List<FileState>> dict;
-        private readonly IStringInternPool stringInternPool;
+        private readonly IPathStorage pathStorage;
 
-        public PathToFileStateHashtable(IStringInternPool stringInternPool) 
+        public PathToFileStateHashtable(IPathStorage pathStorage) 
         {
             dict = new Dictionary<int, List<FileState>>();
-            this.stringInternPool = stringInternPool;
+
+            this.pathStorage = pathStorage;
         }
 
         internal void Mark(ref FileSystemEntry input,long version)
         {
-            // Without allocating strings, calculate a hashcode based on the
-            // directory and filename.
-            int hashCode = HashCode.Combine(
-                input.Directory.GetHashOfContents(),
-                input.FileName.GetHashOfContents());
+            int dirRef = pathStorage.Store(input.Directory);
+            int filenameRef = pathStorage.Store(input.FileName);
+
+            int hashCode = HashCode.Combine(dirRef.GetHashCode(), filenameRef.GetHashCode());
+
+            //// Without allocating strings, calculate a hashcode based on the
+            //// directory and filename.
+            //int hashCode = HashCode.Combine(
+            //    input.Directory.GetHashOfContents(),
+            //    input.FileName.GetHashOfContents());
 
             if(dict.TryGetValue(hashCode, out var fileStates))
             {
@@ -37,8 +44,7 @@ namespace YellowCounter.FileSystemState
                     // matches in here. Do a proper comparision on filename/directory.
 
                     // Use Equals() to match to avoid allocating strings.
-                    if(input.FileName.Equals(existing.FileName, StringComparison.Ordinal)
-                        && input.Directory.Equals(existing.Directory, StringComparison.Ordinal))
+                    if(existing.FilenameRef == filenameRef && existing.DirectoryRef == dirRef)
                     {
                         // Found the file; compare to our existing record so we can
                         // detect if it has been modified.
@@ -52,13 +58,30 @@ namespace YellowCounter.FileSystemState
                 // Hash collision! Add on the end of the list.
                 if(!found)
                 {
-                    fileStates.Add(newFileState(input, version));
+                    fileStates.Add(newFileState(input));
                 }
             }
             else
             {
                 // Not seen before, create a 1-element list and add to the dictionary.
-                dict.Add(hashCode, new List<FileState>() { newFileState(input, version) });
+                dict.Add(hashCode, new List<FileState>() { newFileState(input) });
+            }
+
+            FileState newFileState(FileSystemEntry input)
+            {
+                var fileState = new FileState();
+
+                fileState.LastSeenVersion = version;
+                fileState.CreateVersion = version;
+                fileState.ChangeVersion = version;
+
+                fileState.DirectoryRef = dirRef;
+                fileState.FilenameRef = filenameRef;
+
+                fileState.LastWriteTimeUtc = input.LastWriteTimeUtc;
+                fileState.Length = input.Length;
+
+                return fileState;
             }
         }
 
@@ -80,30 +103,7 @@ namespace YellowCounter.FileSystemState
             }
         }
 
-        private FileState newFileState(FileSystemEntry input, long version)
-        {
-            var fileState = new FileState();
 
-            fileState.LastSeenVersion = version;
-            fileState.CreateVersion = version;
-            fileState.ChangeVersion = version;
-
-            // Here's where we're allocating the strings. Note we only do this when
-            // we first see a file, not on each subsequent scan for changes.
-            var fn = input.FileName;
-            var dir = input.Directory;
-
-            fileState.Directory = stringInternPool.Intern(ref dir);
-            fileState.FileName = stringInternPool.Intern(ref fn);
-
-            //fileState.Directory = input.Directory.ToString();
-            //fileState.Path = input.FileName.ToString();
-
-            fileState.LastWriteTimeUtc = input.LastWriteTimeUtc;
-            fileState.Length = input.Length;
-
-            return fileState;
-        }
 
         public IEnumerable<FileState> Read()
         {
