@@ -75,5 +75,35 @@ namespace YellowCounter.FileSystemState.Tests.PathRedux
 
             results.ShouldBe(new[] { "Hello", "World" });
         }
+
+        [TestMethod]
+        public void CharBufferMaxCapacity()
+        {
+            // To store the text "Hello" without expanding, we need 5 chars for Hello,
+            // 1 char for the null terminator of Hello, and 1 char for the null terminator
+            // of the overall buffer.
+            var charBuffer = new CharBuffer(7);
+
+            int idx1 = charBuffer.Store("Hello");
+            idx1.ShouldNotBe(-1);
+            charBuffer.Capacity.ShouldBe(7);
+
+            charBuffer.Retrieve(idx1).ToString().ShouldBe("Hello");
+
+            int c = 0;
+            foreach(var itm in charBuffer)
+            {
+                if(c == 0)
+                {
+                    itm.Pos.ShouldBe(0);
+                    itm.Span.ToString().ShouldBe("Hello");
+                }
+                else
+                {
+                    throw new Exception("Should only have one item");
+                }
+                c++;
+            }
+        }
     }
 }

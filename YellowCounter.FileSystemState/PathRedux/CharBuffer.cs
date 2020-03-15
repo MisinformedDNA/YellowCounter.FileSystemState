@@ -33,6 +33,8 @@ namespace YellowCounter.FileSystemState.PathRedux
 
         public int Store(ReadOnlySpan<char> input)
         {
+            // We need space for our text, our null terminator, and an extra
+            // null terminator for the end of the buffer.
             if(input.Length + pos + 1 >= buffer.Length)
                 return -1;
 
@@ -158,7 +160,8 @@ namespace YellowCounter.FileSystemState.PathRedux
 
                 var tail = bufSpan.Slice(pos);
 
-                // Reached the end? End enumerating.
+                // Reached the end? End enumerating. The end of the buffer
+                // has a double null terminator \0\0.
                 if(tail[0] == '\0')
                     return false;
 

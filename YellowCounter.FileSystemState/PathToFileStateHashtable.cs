@@ -42,8 +42,6 @@ namespace YellowCounter.FileSystemState
                 {
                     // We've only matched on hashcode so far, so there could be false
                     // matches in here. Do a proper comparision on filename/directory.
-
-                    // Use Equals() to match to avoid allocating strings.
                     if(existing.FilenameRef == filenameRef && existing.DirectoryRef == dirRef)
                     {
                         // Found the file; compare to our existing record so we can

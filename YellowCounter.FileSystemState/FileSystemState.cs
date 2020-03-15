@@ -84,17 +84,6 @@ namespace YellowCounter.FileSystemState
         public void Accept(ref FileSystemEntry fileSystemEntry)
         {
             _state.Mark(ref fileSystemEntry, _version);
-
-            //string path = fileSystemEntry.FileName.ToString();
-
-            //FileState fs = new FileState();
-            //fs.Directory = fileSystemEntry.Directory.ToString();
-            //fs.Path = path;
-            //fs.LastWriteTimeUtc = fileSystemEntry.LastWriteTimeUtc;
-            //fs.Length = fileSystemEntry.Length;
-
-            //_state.Mark(fs, _version);
-
         }
 
         private void acceptChanges()

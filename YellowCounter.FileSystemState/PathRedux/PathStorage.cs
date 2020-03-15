@@ -9,7 +9,7 @@ namespace YellowCounter.FileSystemState.PathRedux
         private HashedCharBuffer buf;
         private HashBucket buckets;
         private List<Entry> entries;
-        private const int Root = -1;
+        private const int Root = -1;    // The root entry's ParentIdx is set to this.
 
         public PathStorage()
         {
@@ -42,7 +42,7 @@ namespace YellowCounter.FileSystemState.PathRedux
             int parentIdx;
             int textRef;
 
-            // No more slash delimiters, so store a root entry (parent index 0).
+            // No more slash delimiters, so store a root entry (parent index -1).
             if(slashPos == -1)
             {
                 parentIdx = Root;
@@ -68,7 +68,7 @@ namespace YellowCounter.FileSystemState.PathRedux
                 rebuildBuckets();
 
                 if(!buckets.Store(hash, result))
-                    throw new Exception("Run out...");
+                    throw new Exception($"Too many hash collisions in {nameof(PathStorage)}");
             }
 
             return result;

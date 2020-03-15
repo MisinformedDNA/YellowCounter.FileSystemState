@@ -48,6 +48,8 @@ namespace YellowCounter.FileSystemState.PathRedux
                 charBuffer.Resize(newSize);
 
                 pos = charBuffer.Store(text);
+                if(pos == -1)
+                    throw new Exception("Resizing charBuffer didn't give us enough space");
             }
 
             if(!chainedLookup.Store(hash, pos))
