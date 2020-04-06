@@ -13,7 +13,16 @@ namespace PathReduxTests.PathRedux
         [TestMethod]
         public void PathStorage1()
         {
-            var ps = new PathStorage();
+            // Trying to trigger it rebuilding the text -> character buffer
+            var ps = new PathStorage(new PathStorageOptions()
+            {
+                HashFunction = new DeterministicHashFunction(),
+                InitialCharCapacity = 4,
+                InitialHashCapacity = 2,
+                LinearSearchLimit = 128,
+                HashBucketMaxChain = 128,
+                HashBucketInitialCapacity = 2,
+            });
 
             var results = new List<int>();
 

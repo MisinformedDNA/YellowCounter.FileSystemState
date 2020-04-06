@@ -42,8 +42,8 @@ namespace YellowCounter.FileSystemState.PathRedux
             if(pos == -1)
             {
                 int newSize = charBuffer.Capacity * 2;
-                if(newSize < text.Length + charBuffer.Capacity)
-                    newSize = charBuffer.Capacity + text.Length;
+                if(newSize < text.Length + charBuffer.Capacity + 2) // Allow 2 for null terminators
+                    newSize = charBuffer.Capacity + text.Length + 2;
 
                 charBuffer.Resize(newSize);
 

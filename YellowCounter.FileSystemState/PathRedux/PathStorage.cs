@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Text;
 
 namespace YellowCounter.FileSystemState.PathRedux
@@ -11,17 +12,19 @@ namespace YellowCounter.FileSystemState.PathRedux
         private List<Entry> entries;
         private const int Root = -1;    // The root entry's ParentIdx is set to this.
 
-        public PathStorage()
+        public PathStorage(PathStorageOptions options)
         {
             buf = new HashedCharBuffer(new HashedCharBufferOptions()
             {
-                HashFunction = new HashFunction(),
-                InitialCharCapacity = 1024,
-                InitialHashCapacity = 256,
-                LinearSearchLimit = 128
+                HashFunction = options.HashFunction,
+                InitialCharCapacity = options.InitialCharCapacity,
+                InitialHashCapacity = options.InitialHashCapacity,
+                LinearSearchLimit = options.LinearSearchLimit
             });
 
-            buckets = new HashBucket(128, 16);
+            buckets = new HashBucket(
+                options.HashBucketInitialCapacity, 
+                options.HashBucketMaxChain);
 
             entries = new List<Entry>();
         }
@@ -82,7 +85,7 @@ namespace YellowCounter.FileSystemState.PathRedux
             {
                 var h = new HashCode();
 
-                foreach(var textRef in chain(idx))
+                foreach(var textRef in chain(idx).Reverse())
                 {
                     var text = buf.Retrieve(textRef);
                     h.Add(text.GetHashOfContents());
