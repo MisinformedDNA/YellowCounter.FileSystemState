@@ -16,11 +16,21 @@ namespace YellowCounter.FileSystemState
         [NonSerialized]
         public long ChangeVersion;
 
+        public FileStateFlags Flags;
         public int DirectoryRef;
         public int FilenameRef;
         public DateTimeOffset LastWriteTimeUtc;
         public long Length;
 
         internal FileState Clone() => (FileState)this.MemberwiseClone();
+    }
+
+    [Flags]
+    public enum FileStateFlags : byte
+    {
+        None = 0,
+        Seen = 1,
+        Created = 2,
+        Changed = 4,
     }
 }

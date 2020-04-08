@@ -19,12 +19,21 @@ namespace YellowCounter.FileSystemState
             this.RootDir = rootDir ?? throw new ArgumentNullException(nameof(rootDir));
             this.Filter = filter ?? throw new ArgumentNullException(nameof(filter));
 
-            if (!Directory.Exists(rootDir))
+            if(!Directory.Exists(rootDir))
                 throw new DirectoryNotFoundException();
 
             EnumerationOptions = options ?? new EnumerationOptions();
 
-            this.pathStorage = new PathStorage();
+            this.pathStorage = new PathStorage(new PathStorageOptions()
+            {
+                HashFunction = new HashFunction(),
+                InitialCharCapacity = 1024,
+                InitialHashCapacity = 256,
+                LinearSearchLimit = 128,
+                HashBucketMaxChain = 128,
+                HashBucketInitialCapacity = 64
+            });
+
             _state = new PathToFileStateHashtable(this.pathStorage);
         }
 
@@ -172,11 +181,11 @@ namespace YellowCounter.FileSystemState
 
             foreach(var x in _state.Read())
             {
-                if(x.LastSeenVersion == _version)
+                if(x.Flags.HasFlag(FileStateFlags.Seen))
                 {
-                    if(x.CreateVersion == _version)
+                    if(x.Flags.HasFlag(FileStateFlags.Created))
                         creates.Add(x);
-                    else
+                    else if(x.Flags.HasFlag(FileStateFlags.Changed))
                         changes.Add(x);
                 }
                 else

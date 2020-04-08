@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using System.Text;
 
@@ -7,6 +8,7 @@ namespace YellowCounter.FileSystemState.PathRedux
 {
     public class PathStorage : IPathStorage
     {
+        private IHashFunction hashFunction;
         private HashedCharBuffer buf;
         private HashBucket buckets;
         private List<Entry> entries;
@@ -14,6 +16,8 @@ namespace YellowCounter.FileSystemState.PathRedux
 
         public PathStorage(PathStorageOptions options)
         {
+            this.hashFunction = options.HashFunction;
+
             buf = new HashedCharBuffer(new HashedCharBufferOptions()
             {
                 HashFunction = options.HashFunction,
@@ -31,12 +35,15 @@ namespace YellowCounter.FileSystemState.PathRedux
 
         public int Store(ReadOnlySpan<char> arg)
         {
-            var hash = arg.GetHashOfContents();
+            var hash = hashFunction.HashSequence(arg);
 
             foreach(var idx in buckets.Retrieve(hash))
             {
                 if(match(idx, arg))
+                {
+                    Debug.WriteLine($"Found match for {arg.ToString()} ({hash})= {idx}");
                     return idx;
+                }
             }
 
             // Find a slash or backslash.
@@ -67,12 +74,19 @@ namespace YellowCounter.FileSystemState.PathRedux
 
             if(!buckets.Store(hash, result))
             {
+
+                Debug.WriteLine($"Start rebuildBuckets");
+
                 // Rebuild buckets from List<Entry> twice as big
                 rebuildBuckets();
+
+                Debug.WriteLine($"End rebuildBuckets");
 
                 if(!buckets.Store(hash, result))
                     throw new Exception($"Too many hash collisions in {nameof(PathStorage)}");
             }
+
+            Debug.WriteLine($"Created {arg.ToString()} ({hash})= {result}");
 
             return result;
         }
@@ -88,7 +102,7 @@ namespace YellowCounter.FileSystemState.PathRedux
                 foreach(var textRef in chain(idx).Reverse())
                 {
                     var text = buf.Retrieve(textRef);
-                    h.Add(text.GetHashOfContents());
+                    h.Add(hashFunction.HashSequence(text));
                 }
 
                 int hash = h.ToHashCode();
@@ -97,6 +111,13 @@ namespace YellowCounter.FileSystemState.PathRedux
             }
 
             this.buckets = newBuckets;
+        }
+
+        public int HashEntry(int idx)
+        {
+            var text = buf.Retrieve(chain(idx));
+            
+            return 0;
         }
 
         public string CreateString(int idx)

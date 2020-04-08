@@ -301,11 +301,12 @@ public partial class FileSystemStateUnitTests
     [Fact]
     public static void FileSystemWatcher_BigDir()
     {
-        string currentDir = @"C:\Users\SpanWork\Documents";
-
+        //string currentDir = @"C:\Users\SpanWork\Documents";
+        string currentDir = @"C:\Users\SpanWork\Documents\Olleco\Scrapbook\DBAzure";
         FileSystemState watcher = new FileSystemState(currentDir,  options: new EnumerationOptions { RecurseSubdirectories = true });
         watcher.LoadState();
 
         var q = watcher.GetChanges();
+        Assert.Empty(q);
     }
 }

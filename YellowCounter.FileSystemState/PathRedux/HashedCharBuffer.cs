@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Buffers;
 using System.Collections.Generic;
 using System.Text;
 
@@ -61,10 +62,8 @@ namespace YellowCounter.FileSystemState.PathRedux
             return pos;
         }
 
-        public ReadOnlySpan<char> Retrieve(int pos)
-        {
-            return charBuffer.Retrieve(pos);
-        }
+        public ReadOnlySpan<char> Retrieve(int pos) => charBuffer.Retrieve(pos);
+        public ReadOnlySequence<char> Retrieve(IEnumerable<int> indices) => charBuffer.Retrieve(indices);
 
         public string CreateString(IEnumerable<int> indices) => charBuffer.CreateString(indices);
 

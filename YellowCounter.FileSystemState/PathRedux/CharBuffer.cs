@@ -102,6 +102,8 @@ namespace YellowCounter.FileSystemState.PathRedux
                 //var text = tail.Slice(0, len);
             }
 
+            // String in REVERSE ORDER of indices - this is because we start at
+            // the end and then point back to the parent, grandparent etc.
             return String.Create(totalLen, (buffer, posLens, totalLen),
                 (chars, state) =>
                 {
@@ -181,7 +183,7 @@ namespace YellowCounter.FileSystemState.PathRedux
         }
 
 
-        public ReadOnlySequence<char> Retrieve(ReadOnlySpan<int> indices)
+        public ReadOnlySequence<char> Retrieve(IEnumerable<int> indices)
         {
             Segment<char> root = null;
             Segment<char> current = null;

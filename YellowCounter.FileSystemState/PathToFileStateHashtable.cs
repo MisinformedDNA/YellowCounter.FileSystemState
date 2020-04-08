@@ -4,6 +4,7 @@ using System.Runtime.Serialization;
 using System.Linq;
 using System.IO.Enumeration;
 using YellowCounter.FileSystemState.PathRedux;
+using System.Diagnostics;
 
 namespace YellowCounter.FileSystemState
 {
@@ -69,6 +70,8 @@ namespace YellowCounter.FileSystemState
             {
                 var fileState = new FileState();
 
+                fileState.Flags = FileStateFlags.Created | FileStateFlags.Seen;
+
                 fileState.LastSeenVersion = version;
                 fileState.CreateVersion = version;
                 fileState.ChangeVersion = version;
@@ -86,12 +89,17 @@ namespace YellowCounter.FileSystemState
         private void markExisting(FileState fs, FileSystemEntry input, long version)
         {
             // Mark that we've seen the file.
+            fs.Flags |= FileStateFlags.Seen;
+
+            // Mark that we've seen the file.
             fs.LastSeenVersion = version;
 
             // Has it changed since we last saw it?
             if(fs.LastWriteTimeUtc != input.LastWriteTimeUtc
                 || fs.Length != input.Length)
             {
+                fs.Flags |= FileStateFlags.Changed;
+
                 // Mark that this version was a change
                 fs.ChangeVersion = version;
 
@@ -120,7 +128,9 @@ namespace YellowCounter.FileSystemState
             {
                 // Remove any item in the list which we didn't see on the last mark
                 // phase (every item that is seen gets the LastSeenVersion updated)
-                list.RemoveAll(x => x.LastSeenVersion != version);
+                //list.RemoveAll(x => x.LastSeenVersion != version);
+
+                list.RemoveAll(x => !x.Flags.HasFlag(FileStateFlags.Seen));
 
                 // In the normal case where there are no hash collisions, this will
                 // remove the one and only item from the list. We can then remove
@@ -129,6 +139,12 @@ namespace YellowCounter.FileSystemState
                 if(list.Count == 0)
                 {
                     toRemove.Add(hash);
+                }
+
+                // Clear the flags on all remaining items.
+                foreach(var x in list)
+                {
+                    x.Flags = FileStateFlags.None;
                 }
             }
 
