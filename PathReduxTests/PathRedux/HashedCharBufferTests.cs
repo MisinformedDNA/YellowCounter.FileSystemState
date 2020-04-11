@@ -1,5 +1,6 @@
 ﻿using Microsoft.VisualStudio.TestTools.UnitTesting;
 using NSubstitute;
+using PathReduxTests.HashCodes;
 using Shouldly;
 using System;
 using System.Collections.Generic;
@@ -17,7 +18,7 @@ namespace PathReduxTests.PathRedux
         {
             var buf = new HashedCharBuffer(new HashedCharBufferOptions()
             {
-                HashFunction = new DeterministicHashFunction(),
+                NewHashCode = () => new DeterministicHashCode(),
                 InitialCharCapacity = 20,
                 InitialHashCapacity = 16,
                 LinearSearchLimit = 3
@@ -38,7 +39,7 @@ namespace PathReduxTests.PathRedux
         {
             var buf = new HashedCharBuffer(new HashedCharBufferOptions()
             {
-                HashFunction = new ControllableHashFunction(),
+                NewHashCode = () => new ControllableHashCode(),
                 InitialCharCapacity = 20,
                 InitialHashCapacity = 16,
                 LinearSearchLimit = 3
@@ -47,9 +48,9 @@ namespace PathReduxTests.PathRedux
             buf.Store("1,Hello");
             buf.Store("1,World");
 
-            // Confirm that both strings the same hashcode.
-            buf.HashFunction.HashSequence("1,Hello").ShouldBe(1);
-            buf.HashFunction.HashSequence("1,World").ShouldBe(1);
+            //// Confirm that both strings the same hashcode.
+            //buf.HashFunction.HashSequence("1,Hello").ShouldBe(1);
+            //buf.HashFunction.HashSequence("1,World").ShouldBe(1);
 
             buf.Find("1,Hello").ShouldBe(0);
             buf.Find("1,World").ShouldBe(8);
@@ -64,7 +65,7 @@ namespace PathReduxTests.PathRedux
             // Allow only 1 item in the linear search phase
             var buf = new HashedCharBuffer(new HashedCharBufferOptions()
             {
-                HashFunction = new ControllableHashFunction(),
+                NewHashCode = () => new ControllableHashCode(),
                 InitialCharCapacity = 20,
                 InitialHashCapacity = 16,
                 LinearSearchLimit = 1
@@ -85,7 +86,7 @@ namespace PathReduxTests.PathRedux
             // Allow 1 items in the linear search phase
             var buf = new HashedCharBuffer(new HashedCharBufferOptions()
             {
-                HashFunction = new ControllableHashFunction(),
+                NewHashCode = () => new ControllableHashCode(),
                 InitialCharCapacity = 20,
                 InitialHashCapacity = 8,
                 LinearSearchLimit = 1

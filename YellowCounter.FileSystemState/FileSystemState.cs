@@ -6,6 +6,7 @@ using System.Runtime.InteropServices;
 using System.Runtime.Serialization.Formatters.Binary;
 using System.Linq;
 using YellowCounter.FileSystemState.PathRedux;
+using YellowCounter.FileSystemState.HashCodes;
 
 namespace YellowCounter.FileSystemState
 {
@@ -26,7 +27,7 @@ namespace YellowCounter.FileSystemState
 
             this.pathStorage = new PathStorage(new PathStorageOptions()
             {
-                HashFunction = new HashFunction(),
+                NewHashCode = () => new StandardHashCode(),
                 InitialCharCapacity = 1024,
                 InitialHashCapacity = 256,
                 LinearSearchLimit = 128,

@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.Text;
 using YellowCounter.FileSystemState.PathRedux;
 using Shouldly;
+using PathReduxTests.HashCodes;
 
 namespace PathReduxTests.PathRedux
 {
@@ -16,7 +17,7 @@ namespace PathReduxTests.PathRedux
             // Trying to trigger it rebuilding the text -> character buffer
             var ps = new PathStorage(new PathStorageOptions()
             {
-                HashFunction = new DeterministicHashFunction(),
+                NewHashCode = () => new DeterministicHashCode(),
                 InitialCharCapacity = 4,
                 InitialHashCapacity = 2,
                 LinearSearchLimit = 128,
@@ -45,7 +46,7 @@ namespace PathReduxTests.PathRedux
             // Trying to trigger it rebuilding the text -> character buffer
             var ps = new PathStorage(new PathStorageOptions()
             {
-                HashFunction = new DeterministicHashFunction(),
+                NewHashCode = () => new DeterministicHashCode(),
                 InitialCharCapacity = 4,
                 InitialHashCapacity = 2,
                 LinearSearchLimit = 128,

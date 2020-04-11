@@ -2,6 +2,7 @@
 using System.Buffers;
 using System.Collections.Generic;
 using System.Text;
+using YellowCounter.FileSystemState.HashCodes;
 
 namespace YellowCounter.FileSystemState.PathRedux
 {
@@ -10,21 +11,20 @@ namespace YellowCounter.FileSystemState.PathRedux
         private readonly int linearSearchLimit;
         private CharBuffer charBuffer;
         private HashBucket chainedLookup;
-        private IHashFunction hashFunction;
+        private readonly Func<IHashCode> newHashCode;
 
         public HashedCharBuffer(HashedCharBufferOptions options)
         {
             charBuffer = new CharBuffer(options.InitialCharCapacity);
             chainedLookup = new HashBucket(options.InitialHashCapacity, options.LinearSearchLimit);
 
-            this.hashFunction = options.HashFunction;
+            this.newHashCode = options.NewHashCode;
             this.linearSearchLimit = options.LinearSearchLimit;
         }
 
         public int LinearSearchLimit => this.linearSearchLimit;
         public int CharCapacity => charBuffer.Capacity;
         public int HashCapacity => chainedLookup.Capacity;
-        public IHashFunction HashFunction => hashFunction;
 
         /// <summary>
         /// Returns index position
@@ -79,7 +79,7 @@ namespace YellowCounter.FileSystemState.PathRedux
             return charBuffer.Match(text, indices);
         }
 
-        private int hashSequence(ReadOnlySpan<char> text) => hashFunction.HashSequence(text);
+        private int hashSequence(ReadOnlySpan<char> text) => newHashCode().HashSequence(text);
         
         private void rebuildLookup()
         {

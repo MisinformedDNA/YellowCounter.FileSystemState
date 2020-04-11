@@ -3,24 +3,26 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
 using System.Text;
+using YellowCounter.FileSystemState.HashCodes;
 
 namespace YellowCounter.FileSystemState.PathRedux
 {
     public class PathStorage : IPathStorage
     {
-        private IHashFunction hashFunction;
         private HashedCharBuffer buf;
         private HashBucket buckets;
         private List<Entry> entries;
         private const int Root = -1;    // The root entry's ParentIdx is set to this.
 
+        private Func<IHashCode> newHashCode;
+
         public PathStorage(PathStorageOptions options)
         {
-            this.hashFunction = options.HashFunction;
+            this.newHashCode = options.NewHashCode;
 
             buf = new HashedCharBuffer(new HashedCharBufferOptions()
             {
-                HashFunction = options.HashFunction,
+                NewHashCode = options.NewHashCode,
                 InitialCharCapacity = options.InitialCharCapacity,
                 InitialHashCapacity = options.InitialHashCapacity,
                 LinearSearchLimit = options.LinearSearchLimit
@@ -35,13 +37,13 @@ namespace YellowCounter.FileSystemState.PathRedux
 
         public int Store(ReadOnlySpan<char> arg)
         {
-            var hash = hashFunction.HashSequence(arg);
+            var hash = newHashCode().HashSequence(arg);
 
             foreach(var idx in buckets.Retrieve(hash))
             {
                 if(match(idx, arg))
                 {
-                    Debug.WriteLine($"Found match for {arg.ToString()} ({hash})= {idx}");
+                    //Debug.WriteLine($"Found match for {arg.ToString()} ({hash})= {idx}");
                     return idx;
                 }
             }
@@ -75,18 +77,18 @@ namespace YellowCounter.FileSystemState.PathRedux
             if(!buckets.Store(hash, result))
             {
 
-                Debug.WriteLine($"Start rebuildBuckets");
+                //Debug.WriteLine($"Start rebuildBuckets");
 
                 // Rebuild buckets from List<Entry> twice as big
                 rebuildBuckets();
 
-                Debug.WriteLine($"End rebuildBuckets");
+                //Debug.WriteLine($"End rebuildBuckets");
 
                 if(!buckets.Store(hash, result))
                     throw new Exception($"Too many hash collisions in {nameof(PathStorage)}");
             }
 
-            Debug.WriteLine($"Created {arg.ToString()} ({hash})= {result}");
+            //Debug.WriteLine($"Created {arg.ToString()} ({hash})= {result}");
 
             return result;
         }
@@ -97,15 +99,18 @@ namespace YellowCounter.FileSystemState.PathRedux
 
             for(int idx = 0; idx < entries.Count; idx++)
             {
-                var h = new HashCode();
+                var hashCode = newHashCode();
 
                 foreach(var textRef in chain(idx).Reverse())
                 {
                     var text = buf.Retrieve(textRef);
-                    h.Add(hashFunction.HashSequence(text));
+                    foreach(var elem in text)
+                    {
+                        hashCode.Add(elem);
+                    }
                 }
 
-                int hash = h.ToHashCode();
+                int hash = hashCode.ToHashCode();
 
                 newBuckets.Store(hash, idx);
             }
