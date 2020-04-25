@@ -11,7 +11,7 @@ public partial class FileSystemStateUnitTests
 
         string path = Environment.CurrentDirectory;
         var watcher = new FileSystemState(path);
-        Assert.Equal(path, watcher.Path);
+        Assert.Equal(path, watcher.RootDir);
         Assert.Equal("*", watcher.Filter);
         Assert.NotNull(watcher.EnumerationOptions);
     }
@@ -23,7 +23,7 @@ public partial class FileSystemStateUnitTests
         const string filter = "*.csv";
         var watcher = new FileSystemState(currentDir, filter, new EnumerationOptions { RecurseSubdirectories = true });
 
-        Assert.Equal(currentDir, watcher.Path);
+        Assert.Equal(currentDir, watcher.RootDir);
         Assert.Equal(filter, watcher.Filter);
         Assert.True(watcher.EnumerationOptions.RecurseSubdirectories);
     }
@@ -32,7 +32,7 @@ public partial class FileSystemStateUnitTests
     public static void FileSystemWatcher_ctor_Null()
     {
         // Not valid
-        Assert.Throws<ArgumentNullException>("path", () => new FileSystemState(null));
+        Assert.Throws<ArgumentNullException>("rootDir", () => new FileSystemState(null));
         Assert.Throws<ArgumentNullException>("filter", () => new FileSystemState(Environment.CurrentDirectory, null));
 
         // Valid
@@ -122,6 +122,79 @@ public partial class FileSystemStateUnitTests
         }
         finally
         {
+            Directory.Delete(currentDir, true);
+        }
+    }
+
+
+
+    [Fact]
+    public static void FileSystemWatcher_Renamed_File()
+    {
+        string currentDir = Utility.GetRandomDirectory();
+        string fileName = Path.GetRandomFileName();
+        string newName = Path.GetRandomFileName();
+        string fullName = Path.Combine(currentDir, fileName);
+
+
+        FileSystemState watcher = new FileSystemState(currentDir);
+
+        using(FileStream file = File.Create(fullName)) { }
+        watcher.LoadState();
+
+        File.Move(fullName, Path.Combine(currentDir, newName));
+
+        var changes = watcher.GetChanges();
+
+        try
+        {
+            Assert.Single(changes);
+            FileChange change = changes[0];
+            Assert.Equal(WatcherChangeTypes.Renamed, change.ChangeType);
+            Assert.Equal(fileName, change.OldName);
+            Assert.Equal(currentDir, change.OldDirectory);
+            Assert.Equal(newName, change.Name);
+            Assert.Equal(currentDir, change.Directory);
+        }
+        finally
+        {
+            Directory.Delete(currentDir, true);
+        }
+    }
+
+    [Fact]
+    public static void FileSystemWatcher_Renamed_Directory()
+    {
+        string currentDir = Utility.GetRandomDirectory();
+        string fileName = Path.GetRandomFileName();
+        string subDir = Path.Combine(currentDir, "subdir");
+        string fullName = Path.Combine(currentDir, fileName);
+        string newName = Path.Combine(subDir, fileName);
+
+        FileSystemState watcher = new FileSystemState(currentDir, options: new EnumerationOptions() { RecurseSubdirectories = true });
+
+        Directory.CreateDirectory(subDir);
+
+        using(FileStream file = File.Create(fullName)) { }
+        watcher.LoadState();
+
+        File.Move(fullName, Path.Combine(currentDir, newName));
+
+        var changes = watcher.GetChanges();
+
+        try
+        {
+            Assert.Single(changes);
+            FileChange change = changes[0];
+            Assert.Equal(WatcherChangeTypes.Renamed, change.ChangeType);
+            Assert.Equal(fileName, change.OldName);
+            Assert.Equal(currentDir, change.OldDirectory);
+            Assert.Equal(fileName, change.Name);
+            Assert.Equal(subDir, change.Directory);
+        }
+        finally
+        {
+            Directory.Delete(subDir, true);
             Directory.Delete(currentDir, true);
         }
     }
@@ -222,5 +295,18 @@ public partial class FileSystemStateUnitTests
         {
             Directory.Delete(currentDir, true);
         }
+    }
+
+
+    [Fact]
+    public static void FileSystemWatcher_BigDir()
+    {
+        string currentDir = @"C:\Users\SpanWork\Documents";
+        //string currentDir = @"C:\Users\SpanWork\Documents\Olleco\Scrapbook\DBAzure";
+        FileSystemState watcher = new FileSystemState(currentDir,  options: new EnumerationOptions { RecurseSubdirectories = true });
+        watcher.LoadState();
+
+        var q = watcher.GetChanges();
+        Assert.Empty(q);
     }
 }

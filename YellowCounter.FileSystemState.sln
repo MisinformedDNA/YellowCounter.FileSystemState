@@ -1,11 +1,13 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
-# Visual Studio 15
-VisualStudioVersion = 15.0.27703.2026
+# Visual Studio Version 16
+VisualStudioVersion = 16.0.29728.190
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "YellowCounter.FileSystemState", "YellowCounter.FileSystemState\YellowCounter.FileSystemState.csproj", "{8C085D5D-AC6F-48D9-A547-B6C92E18D2FB}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "YellowCounter.FileSystemState", "YellowCounter.FileSystemState\YellowCounter.FileSystemState.csproj", "{8C085D5D-AC6F-48D9-A547-B6C92E18D2FB}"
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "YellowCounter.FileSystemState.Tests", "YellowCounter.FileSystemState.Tests\YellowCounter.FileSystemState.Tests.csproj", "{EE22E810-4ADC-4399-9C72-B2B70831EB05}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "PathReduxTests", "PathReduxTests\PathReduxTests.csproj", "{33F0288C-B927-4145-84E1-321BD5AD8996}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -21,6 +23,10 @@ Global
 		{EE22E810-4ADC-4399-9C72-B2B70831EB05}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{EE22E810-4ADC-4399-9C72-B2B70831EB05}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{EE22E810-4ADC-4399-9C72-B2B70831EB05}.Release|Any CPU.Build.0 = Release|Any CPU
+		{33F0288C-B927-4145-84E1-321BD5AD8996}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{33F0288C-B927-4145-84E1-321BD5AD8996}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{33F0288C-B927-4145-84E1-321BD5AD8996}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{33F0288C-B927-4145-84E1-321BD5AD8996}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

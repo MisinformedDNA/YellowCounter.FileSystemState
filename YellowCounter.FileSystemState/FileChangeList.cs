@@ -10,5 +10,7 @@ namespace YellowCounter.FileSystemState
         internal void AddChanged(string directory, string path) => Add(new FileChange(directory, path, WatcherChangeTypes.Changed));
 
         internal void AddRemoved(string directory, string path) => Add(new FileChange(directory, path, WatcherChangeTypes.Deleted));
+        internal void AddRenamed(string directory, string path, string oldDirectory, string oldPath) => 
+            Add(new FileChange(directory, path, WatcherChangeTypes.Renamed, oldDirectory, oldPath));
     }
 }
