@@ -21,18 +21,12 @@ namespace YellowCounter.FileSystemState
             this.pathStorage = pathStorage;
         }
 
-        internal void Mark(ref FileSystemEntry input,long version)
+        internal void Mark(ref FileSystemEntry input)
         {
             int dirRef = pathStorage.Store(input.Directory);
             int filenameRef = pathStorage.Store(input.FileName);
 
             int hashCode = HashCode.Combine(dirRef.GetHashCode(), filenameRef.GetHashCode());
-
-            //// Without allocating strings, calculate a hashcode based on the
-            //// directory and filename.
-            //int hashCode = HashCode.Combine(
-            //    input.Directory.GetHashOfContents(),
-            //    input.FileName.GetHashOfContents());
 
             if(dict.TryGetValue(hashCode, out var fileStates))
             {
@@ -47,7 +41,7 @@ namespace YellowCounter.FileSystemState
                     {
                         // Found the file; compare to our existing record so we can
                         // detect if it has been modified.
-                        markExisting(existing, input, version);
+                        markExisting(existing, input);
 
                         found = true;
                         break;
@@ -72,10 +66,6 @@ namespace YellowCounter.FileSystemState
 
                 fileState.Flags = FileStateFlags.Created | FileStateFlags.Seen;
 
-                fileState.LastSeenVersion = version;
-                fileState.CreateVersion = version;
-                fileState.ChangeVersion = version;
-
                 fileState.DirectoryRef = dirRef;
                 fileState.FilenameRef = filenameRef;
 
@@ -86,22 +76,16 @@ namespace YellowCounter.FileSystemState
             }
         }
 
-        private void markExisting(FileState fs, FileSystemEntry input, long version)
+        private void markExisting(FileState fs, FileSystemEntry input)
         {
             // Mark that we've seen the file.
             fs.Flags |= FileStateFlags.Seen;
-
-            // Mark that we've seen the file.
-            fs.LastSeenVersion = version;
 
             // Has it changed since we last saw it?
             if(fs.LastWriteTimeUtc != input.LastWriteTimeUtc
                 || fs.Length != input.Length)
             {
                 fs.Flags |= FileStateFlags.Changed;
-
-                // Mark that this version was a change
-                fs.ChangeVersion = version;
 
                 // Update the last write time / file length.
                 fs.LastWriteTimeUtc = input.LastWriteTimeUtc;
@@ -119,7 +103,7 @@ namespace YellowCounter.FileSystemState
             }
         }
 
-        public void Sweep(long version)
+        public void Sweep()
         {
             var toRemove = new List<int>();
 

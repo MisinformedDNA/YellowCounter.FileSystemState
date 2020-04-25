@@ -12,7 +12,6 @@ namespace YellowCounter.FileSystemState
 {
     public class FileSystemState : IAcceptFileSystemEntry 
     {
-        private long _version = 0L;
         private PathToFileStateHashtable _state;
 
         public FileSystemState(string rootDir, string filter = "*", EnumerationOptions options = null)
@@ -93,14 +92,13 @@ namespace YellowCounter.FileSystemState
 
         public void Accept(ref FileSystemEntry fileSystemEntry)
         {
-            _state.Mark(ref fileSystemEntry, _version);
+            _state.Mark(ref fileSystemEntry);
         }
 
         private void acceptChanges()
         {
             // Clear out the files that have been removed or renamed from our state.
-            _state.Sweep(_version);
-            _version++;
+            _state.Sweep();
         }
 
         private FileChangeList convertToFileChanges(
