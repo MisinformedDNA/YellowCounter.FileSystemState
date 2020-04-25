@@ -7,6 +7,19 @@ using YellowCounter.FileSystemState.HashCodes;
 
 namespace YellowCounter.FileSystemState.PathRedux
 {
+    /// <summary>
+    /// Storing a long list of full paths from a recursive directory search involves
+    /// a lot of repeats:
+    /// C:\abc\def
+    /// C:\abc\def\ghi
+    /// C:\abc\def\jkl
+    /// C:\abc\def\mno
+    /// 
+    /// This class implements a Parent Pointer Tree, it splits the path by the directory
+    /// separator, stores the final text after the \, then a pointer to the entry for
+    /// the parent directory. This occurs recursively so we only store the text for each
+    /// folder name once.
+    /// </summary>
     public class PathStorage : IPathStorage
     {
         private HashedCharBuffer buf;
@@ -43,7 +56,6 @@ namespace YellowCounter.FileSystemState.PathRedux
             {
                 if(match(idx, arg))
                 {
-                    //Debug.WriteLine($"Found match for {arg.ToString()} ({hash})= {idx}");
                     return idx;
                 }
             }
@@ -76,19 +88,12 @@ namespace YellowCounter.FileSystemState.PathRedux
 
             if(!buckets.Store(hash, result))
             {
-
-                //Debug.WriteLine($"Start rebuildBuckets");
-
                 // Rebuild buckets from List<Entry> twice as big
                 rebuildBuckets();
-
-                //Debug.WriteLine($"End rebuildBuckets");
 
                 if(!buckets.Store(hash, result))
                     throw new Exception($"Too many hash collisions in {nameof(PathStorage)}");
             }
-
-            //Debug.WriteLine($"Created {arg.ToString()} ({hash})= {result}");
 
             return result;
         }
